@@ -3,7 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Peserta;
+use App\Models\Absensi;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -11,9 +15,6 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 
 class PesertaController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
         $peserta = Peserta::orderBy('nama_lengkap')->paginate(15);
@@ -21,17 +22,11 @@ class PesertaController extends Controller
         return view('peserta.index', compact('peserta', 'total'));
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
     public function create()
     {
         return view('peserta.create');
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -64,9 +59,6 @@ class PesertaController extends Controller
         return redirect()->route('peserta.index')->with('success', 'Siswa berhasil ditambahkan!');
     }
 
-    /**
-     * Display the specified resource.
-     */
     public function show($id)
     {
         $peserta = Peserta::findOrFail($id);
@@ -78,18 +70,12 @@ class PesertaController extends Controller
         return view('peserta.show', compact('peserta'));
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
     public function edit($id)
     {
         $peserta = Peserta::findOrFail($id);
         return view('peserta.edit', compact('peserta'));
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
     public function update(Request $request, $id)
     {
         $peserta = Peserta::findOrFail($id);
@@ -124,9 +110,6 @@ class PesertaController extends Controller
         return redirect()->route('peserta.index')->with('success', 'Data siswa berhasil diupdate!');
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy($id)
     {
         $peserta = Peserta::findOrFail($id);
@@ -142,13 +125,6 @@ class PesertaController extends Controller
         return redirect()->route('peserta.index')->with('success', 'Siswa berhasil dihapus!');
     }
 
-    // ============================================================
-    // ===== CUSTOM METHODS =====
-    // ============================================================
-
-    /**
-     * Cari peserta berdasarkan NIS (untuk auto-fill di form absensi)
-     */
     public function cari($nis)
     {
         $peserta = Peserta::where('nis', $nis)->first();
@@ -167,17 +143,11 @@ class PesertaController extends Controller
         ]);
     }
 
-    /**
-     * Tampilkan form import Excel
-     */
     public function importForm()
     {
         return view('peserta.import');
     }
 
-    /**
-     * Proses import data dari file Excel
-     */
     public function import(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -208,16 +178,12 @@ class PesertaController extends Controller
                 $lembaga = trim($row[2] ?? '');
                 $gugus = trim($row[3] ?? '');
 
-                if (empty($nis) && empty($nama) && empty($lembaga) && empty($gugus)) {
-                    continue;
-                }
-
                 if (empty($nis) || empty($nama)) {
                     $errors[] = "Data tidak lengkap: NIS '$nis', Nama '$nama'";
                     continue;
                 }
 
-                if (!in_array($lembaga, ['MTs', 'MA'], true)) {
+                if (!in_array($lembaga, ['MTs', 'MA'])) {
                     $errors[] = "Lembaga '$lembaga' tidak valid untuk NIS $nis (harus MTs atau MA)";
                     continue;
                 }
@@ -250,29 +216,24 @@ class PesertaController extends Controller
                 ->with('success', $message)
                 ->with('errors', $errors)
                 ->with('duplicates', $duplicates);
+
         } catch (\Exception $e) {
             return redirect()->route('peserta.import.form')
                 ->with('error', '❌ Gagal membaca file: ' . $e->getMessage());
         }
     }
 
-    /**
-     * Download template Excel untuk import data
-     */
     public function exportTemplate()
     {
         try {
-            // Buat spreadsheet baru
             $spreadsheet = new Spreadsheet();
             $sheet = $spreadsheet->getActiveSheet();
 
-            // ===== HEADER =====
             $sheet->setCellValue('A1', 'NIS');
             $sheet->setCellValue('B1', 'Nama Lengkap');
             $sheet->setCellValue('C1', 'Lembaga (MTs/MA)');
             $sheet->setCellValue('D1', 'Gugus/Kelompok');
 
-            // Style header: Bold, Background Biru, Text Putih
             $headerStyle = $sheet->getStyle('A1:D1');
             $headerStyle->getFont()->setBold(true)->setSize(12);
             $headerStyle->getFill()
@@ -280,7 +241,6 @@ class PesertaController extends Controller
                 ->getStartColor()->setARGB('FF1E3A8A');
             $headerStyle->getFont()->getColor()->setARGB('FFFFFFFF');
 
-            // ===== CONTOH DATA =====
             $sheet->setCellValue('A2', '2510614001');
             $sheet->setCellValue('B2', 'Ahmad Fauzi Rahman');
             $sheet->setCellValue('C2', 'MA');
@@ -296,12 +256,10 @@ class PesertaController extends Controller
             $sheet->setCellValue('C4', 'MA');
             $sheet->setCellValue('D4', 'Kelompok Khalid bin Walid');
 
-            // ===== AUTO SIZE COLUMNS =====
             foreach (range('A', 'D') as $col) {
                 $sheet->getColumnDimension($col)->setAutoSize(true);
             }
 
-            // ===== BORDER =====
             $styleArray = [
                 'borders' => [
                     'allBorders' => [
@@ -312,10 +270,8 @@ class PesertaController extends Controller
             ];
             $sheet->getStyle('A1:D4')->applyFromArray($styleArray);
 
-            // ===== SAVE FILE =====
             $writer = new Xlsx($spreadsheet);
             
-            // Set header untuk download
             header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             header('Content-Disposition: attachment;filename="template_import_peserta.xlsx"');
             header('Cache-Control: max-age=0');
@@ -331,6 +287,67 @@ class PesertaController extends Controller
         } catch (\Exception $e) {
             return redirect()->route('peserta.import.form')
                 ->with('error', '❌ Gagal generate template: ' . $e->getMessage());
+        }
+    }
+
+    // ================================================================
+    // 🗑️ HAPUS SEMUA DATA (MASS DELETE) - VERSION 2 (TANPA TRANSACTION)
+    // ================================================================
+    public function hapusSemua(Request $request)
+    {
+        // Validasi password
+        $validator = Validator::make($request->all(), [
+            'password' => 'required|string'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Password harus diisi!'
+            ], 422);
+        }
+
+        // Cek password admin
+        $user = Auth::user();
+        if (!Hash::check($request->password, $user->password)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Password salah!'
+            ], 422);
+        }
+
+        try {
+            // Hitung jumlah data sebelum dihapus
+            $absensiCount = Absensi::count();
+            $pesertaCount = Peserta::count();
+
+            // ===== MATIKAN FOREIGN KEY CHECK =====
+            DB::statement('SET FOREIGN_KEY_CHECKS=0');
+
+            // Hapus semua data
+            Absensi::truncate();
+            Peserta::truncate();
+
+            // ===== NYALAKAN KEMBALI FOREIGN KEY CHECK =====
+            DB::statement('SET FOREIGN_KEY_CHECKS=1');
+
+            // Reset auto-increment
+            DB::statement('ALTER TABLE absensi AUTO_INCREMENT = 1');
+            DB::statement('ALTER TABLE peserta AUTO_INCREMENT = 1');
+
+            return response()->json([
+                'success' => true,
+                'message' => "Berhasil menghapus {$pesertaCount} data peserta dan {$absensiCount} data absensi!"
+            ]);
+
+        } catch (\Exception $e) {
+            // Pastikan foreign key check tetap nyala
+            DB::statement('SET FOREIGN_KEY_CHECKS=1');
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menghapus data: ' . $e->getMessage()
+            ], 500);
         }
     }
 }

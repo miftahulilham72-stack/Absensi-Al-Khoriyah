@@ -179,17 +179,6 @@
             .main-content { margin-left: 0 !important; }
             .menu-toggle { display: block !important; }
         }
-        
-        /* ===== NOTIFIKASI DROPDOWN ===== */
-        #notif-dropdown {
-            animation: slideDown 0.25s ease;
-        }
-        @keyframes slideDown {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        #notif-dropdown::-webkit-scrollbar { width: 4px; }
-        #notif-dropdown::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
     </style>
 </head>
 <body>
@@ -226,6 +215,14 @@
                 <span class="material-symbols-outlined icon">edit_note</span> Absensi Manual
                 <span class="badge-label">ADMIN</span>
             </a>
+            
+            <!-- ===== LOGOUT DI SIDEBAR ===== -->
+            <form method="POST" action="{{ route('logout') }}" style="margin-top:8px;border-top:1px solid #e2e8f0;padding-top:8px;">
+                @csrf
+                <button type="submit" class="menu-item" style="color:#dc2626;width:100%;text-align:left;">
+                    <span class="material-symbols-outlined icon" style="font-size:18px;">logout</span> Keluar
+                </button>
+            </form>
         </nav>
         <div class="sidebar-footer">
             <a href="#" class="menu-item" style="color:#94a3b8;">
@@ -243,6 +240,23 @@
         @yield('content')
     </div>
 
+    <!-- ========================================================== -->
+    <!-- 🚪 FLOATING LOGOUT BUTTON UNTUK HP (DI SINI!)              -->
+    <!-- ========================================================== -->
+    @if(Auth::check())
+    <div class="md:hidden fixed bottom-6 right-6 z-50">
+        <form method="POST" action="{{ route('logout') }}" id="floating-logout-form">
+            @csrf
+            <button type="submit" 
+                    class="bg-[#dc2626] text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center hover:bg-[#b91c1c] transition-all active:scale-95"
+                    style="box-shadow: 0 4px 20px rgba(220,38,38,0.4);"
+                    id="floating-logout-btn">
+                <span class="material-symbols-outlined" style="font-size:28px;">logout</span>
+            </button>
+        </form>
+    </div>
+    @endif
+
     @stack('scripts')
 
     <script>
@@ -254,131 +268,42 @@
             overlay.classList.toggle('open');
         }
 
-        // ===== NOTIFICATIONS =====
-        let notifCount = 0;
-        let notifData = [];
-
-        function toggleNotifications() {
-            const dropdown = document.getElementById('notif-dropdown');
-            const badge = document.getElementById('notif-badge');
-            if (dropdown.style.display === 'block') {
-                dropdown.style.display = 'none';
-            } else {
-                dropdown.style.display = 'block';
-                if (badge) {
-                    badge.style.display = 'none';
-                }
-            }
-        }
-
-        document.addEventListener('click', function(e) {
-            const notifBtn = document.getElementById('notif-btn');
-            const dropdown = document.getElementById('notif-dropdown');
-            if (notifBtn && dropdown && !notifBtn.contains(e.target) && !dropdown.contains(e.target)) {
-                dropdown.style.display = 'none';
-            }
-        });
-
-        function checkNotifications() {
-            fetch('/notifications/count')
-                .then(res => res.json())
-                .then(data => {
-                    notifCount = data.count || 0;
-                    notifData = data.notifications || [];
-
-                    const badge = document.getElementById('notif-badge');
-                    const list = document.getElementById('notif-list');
-                    const empty = document.getElementById('notif-empty');
-
-                    if (notifCount > 0) {
-                        if (badge) {
-                            badge.textContent = notifCount;
-                            badge.style.display = 'block';
-                        }
-
-                        let html = '';
-                        notifData.forEach(notif => {
-                            const bgColor = notif.type === 'danger' ? '#fef2f2' : '#fffbeb';
-                            const borderColor = notif.type === 'danger' ? '#fecaca' : '#fde68a';
-                            const textColor = notif.type === 'danger' ? '#dc2626' : '#d97706';
-
-                            html += `
-                                <div style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-size:13px;color:#0f172a;cursor:pointer;transition:background 0.15s;background:${bgColor};border-left:3px solid ${borderColor};"
-                                     onmouseover="this.style.background='#f8fafc'"
-                                     onmouseout="this.style.background='${bgColor}'"
-                                     onclick="markAsRead('${notif.id}')">
-                                    <div style="font-weight:600;color:${textColor};">${notif.title}</div>
-                                    <div style="font-size:12px;color:#475569;margin-top:2px;">${notif.message}</div>
-                                    <div style="font-size:10px;color:#94a3b8;margin-top:4px;">${notif.time}</div>
-                                </div>
-                            `;
-                        });
-
-                        if (list) {
-                            list.innerHTML = html;
-                        }
-                        if (empty) {
-                            empty.style.display = 'none';
-                        }
-                    } else {
-                        if (badge) {
-                            badge.style.display = 'none';
-                        }
-                        if (list) {
-                            list.innerHTML = '';
-                        }
-                        if (empty) {
-                            empty.style.display = 'block';
-                        }
-                    }
-                })
-                .catch(() => {});
-        }
-
-        function markAsRead(id) {
-            fetch(`/notifications/mark-read/${id}`, {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
-            }).then(() => {
-                checkNotifications();
-            });
-        }
-
-        function markAllRead() {
-            fetch('/notifications/mark-all-read', {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
-            }).then(() => {
-                checkNotifications();
-                const dropdown = document.getElementById('notif-dropdown');
-                if (dropdown) {
-                    dropdown.style.display = 'block';
-                }
-            });
-        }
-
-        // ===== SEARCH GLOBAL =====
+        // ===== KONFIRMASI LOGOUT =====
         document.addEventListener('DOMContentLoaded', function() {
-            const searchInput = document.getElementById('global-search');
-            if (searchInput) {
-                searchInput.addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter') {
-                        document.getElementById('search-form').submit();
+            // Semua form logout
+            const logoutForms = document.querySelectorAll('form[action*="logout"]');
+            
+            logoutForms.forEach(form => {
+                form.addEventListener('submit', function(e) {
+                    if (!confirm('Yakin ingin keluar dari sistem?')) {
+                        e.preventDefault();
                     }
                 });
-            }
+            });
 
-            // Cek notifikasi setiap 30 detik
-            checkNotifications();
-            setInterval(checkNotifications, 30000);
+            // Floating logout button
+            const floatingBtn = document.getElementById('floating-logout-btn');
+            if (floatingBtn) {
+                floatingBtn.addEventListener('click', function(e) {
+                    // Confirm sudah di-handle oleh form submit
+                });
+            }
         });
 
-        // ESC untuk menutup dropdown
+        // ESC untuk tutup sidebar
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
-                document.getElementById('notif-dropdown').style.display = 'none';
                 const sidebar = document.getElementById('sidebar');
                 if (sidebar.classList.contains('open')) toggleSidebar();
+            }
+        });
+
+        window.addEventListener('resize', function() {
+            if (window.innerWidth > 768) {
+                const sidebar = document.getElementById('sidebar');
+                const overlay = document.getElementById('sidebar-overlay');
+                sidebar.classList.remove('open');
+                overlay.classList.remove('open');
             }
         });
     </script>

@@ -27,10 +27,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/', fn() => redirect('/dashboard'));
     
-    // Reset Data
-    Route::get('/reset-data', [DashboardController::class, 'resetData'])->name('reset.data');
-    Route::post('/reset-data', [DashboardController::class, 'resetDataProcess'])->name('reset.data.process');
-    
+ // Hapus semua data peserta
+    Route::delete('/peserta/hapus-semua', [PesertaController::class, 'hapusSemua'])->name('peserta.hapus-semua');
     // ===== PESERTA ROUTES =====
     // CUSTOM ROUTES HARUS DI ATAS ROUTE {id}
     Route::get('/peserta/cari/{nis}', [PesertaController::class, 'cari'])->name('peserta.cari');
