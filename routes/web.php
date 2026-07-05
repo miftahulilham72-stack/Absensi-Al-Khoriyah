@@ -60,12 +60,16 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/absensi/manual', [AbsensiController::class, 'manual'])->name('absensi.manual');
     Route::post('/absensi/manual-store', [AbsensiController::class, 'manualStore'])->name('absensi.manual.store');
 
-   
-// ===== NOTIFICATIONS =====
-Route::get('/notifications/count', [NotificationController::class, 'count'])->name('notifications.count');
-Route::post('/notifications/mark-read/{id}', [NotificationController::class, 'markRead'])->name('notifications.mark-read');
-Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllRead'])->name('notifications.mark-all-read');
-Route::post('/notifications/reset', [NotificationController::class, 'resetNotifications'])->name('notifications.reset');
+    // ===== KIOSK MODE (Untuk Peserta) =====
+    Route::get('/absensi/kiosk', [AbsensiController::class, 'kiosk'])->name('absensi.kiosk');
+    Route::post('/absensi/kiosk/store', [AbsensiController::class, 'kioskStore'])->name('absensi.kiosk.store');
+    Route::get('/absensi/counter', [AbsensiController::class, 'counter'])->name('absensi.counter');
+
+    // ===== NOTIFICATIONS =====
+    Route::get('/notifications/count', [NotificationController::class, 'count'])->name('notifications.count');
+    Route::post('/notifications/mark-read/{id}', [NotificationController::class, 'markRead'])->name('notifications.mark-read');
+    Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllRead'])->name('notifications.mark-all-read');
+    Route::post('/notifications/reset', [NotificationController::class, 'resetNotifications'])->name('notifications.reset');
 });
 
 

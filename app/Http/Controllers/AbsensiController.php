@@ -380,4 +380,130 @@ class AbsensiController extends Controller
             ], 400);
         }
     }
+
+    /**
+     * Tampilkan halaman kiosk untuk peserta
+     */
+    public function kiosk(Request $request)
+    {
+        $lembaga = $request->get('lembaga', 'semua');
+
+        if (!in_array($lembaga, ['MTs', 'MA', 'semua'])) {
+            $lembaga = 'semua';
+        }
+
+        $sesiAktif = Sesi::where('is_active', true)->first();
+
+        return view('absensi.kiosk', compact('lembaga', 'sesiAktif'));
+    }
+
+    /**
+     * Proses absensi dari mode kiosk
+     */
+    public function kioskStore(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'nis' => 'required|string|exists:peserta,nis',
+            'ttd' => 'required|string|min:100',
+            'lembaga' => 'required|string|in:MTs,MA,semua'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first()
+            ], 422);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $nis = $request->nis;
+            $ttdBase64 = $request->ttd;
+            $lembagaFilter = $request->lembaga;
+
+            $peserta = Peserta::where('nis', $nis)->first();
+            if (!$peserta) {
+                throw new \Exception('NIS tidak terdaftar!');
+            }
+
+            if ($lembagaFilter !== 'semua' && $peserta->lembaga !== $lembagaFilter) {
+                throw new \Exception('NIS terdaftar di ' . $peserta->lembaga . ', bukan ' . $lembagaFilter . '!');
+            }
+
+            $sesi = Sesi::where('is_active', true)->first();
+            if (!$sesi) {
+                throw new \Exception('Tidak ada sesi aktif!');
+            }
+
+            $sudahAbsen = Absensi::where('peserta_id', $peserta->id)
+                                ->where('sesi_id', $sesi->id)
+                                ->exists();
+            if ($sudahAbsen) {
+                throw new \Exception($peserta->nama_lengkap . ' sudah absen!');
+            }
+
+            $ttdPath = $this->saveTtdImage($ttdBase64, $nis);
+
+            $jamSekarang = now()->format('H:i:s');
+            $status = $jamSekarang <= $sesi->batas_waktu ? 'Tepat Waktu' : 'Terlambat';
+
+            Absensi::create([
+                'peserta_id' => $peserta->id,
+                'sesi_id' => $sesi->id,
+                'jam_masuk' => $jamSekarang,
+                'status' => $status,
+                'keterangan' => 'Hadir',
+                'ttd_image' => $ttdPath,
+                'absen_manual' => false,
+                'diabsensi_oleh' => null,
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Halo ' . $peserta->nama_lengkap . '! Absen berhasil. Status: ' . $status,
+                'data' => [
+                    'nama' => $peserta->nama_lengkap,
+                    'status' => $status
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 400);
+        }
+    }
+
+    /**
+     * Get counter absensi real-time
+     */
+    public function counter(Request $request)
+    {
+        $today = now()->toDateString();
+
+        $mts = Absensi::whereDate('created_at', $today)
+                      ->whereHas('peserta', function($q) {
+                          $q->where('lembaga', 'MTs');
+                      })->count();
+
+        $ma = Absensi::whereDate('created_at', $today)
+                     ->whereHas('peserta', function($q) {
+                         $q->where('lembaga', 'MA');
+                     })->count();
+
+        $total = $mts + $ma;
+        $totalSiswa = Peserta::count();
+
+        return response()->json([
+            'mts' => $mts,
+            'ma' => $ma,
+            'total' => $total,
+            'total_siswa' => $totalSiswa
+        ]);
+    }
 }
