@@ -180,32 +180,16 @@
             .menu-toggle { display: block !important; }
         }
         
-        /* ===== UTILITY ===== */
-        .card {
-            background: #ffffff;
-            border-radius: 10px;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-            overflow: hidden;
+        /* ===== NOTIFIKASI DROPDOWN ===== */
+        #notif-dropdown {
+            animation: slideDown 0.25s ease;
         }
-        .btn-success { background: #10b981; color: #fff; }
-        .btn-success:hover { background: #059669; }
-        .btn-danger { background: #ef4444; color: #fff; }
-        .btn-danger:hover { background: #dc2626; }
-        .btn-primary { background: #1e293b; color: #fff; }
-        .btn-primary:hover { background: #0f172a; }
-        .btn-sm { padding: 6px 14px; font-size: 12px; border-radius: 6px; border: none; cursor: pointer; transition: all 0.15s; display: inline-flex; align-items: center; gap: 4px; }
-
-        /* Signature Canvas */
-        .signature-canvas {
-            touch-action: none;
-            cursor: crosshair;
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
-        .institution-radio:checked + label {
-            border-color: #a53936;
-            background-color: #ffdad7;
-            box-shadow: inset 0 0 0 1px #a53936;
-        }
+        #notif-dropdown::-webkit-scrollbar { width: 4px; }
+        #notif-dropdown::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
     </style>
 </head>
 <body>
@@ -240,16 +224,18 @@
             </a>
             <a href="{{ route('absensi.manual') }}" class="menu-item badge-admin {{ request()->routeIs('absensi.manual*') ? 'active' : '' }}">
                 <span class="material-symbols-outlined icon">edit_note</span> Absensi Manual
+                <span class="badge-label">ADMIN</span>
             </a>
         </nav>
         <div class="sidebar-footer">
             <a href="#" class="menu-item" style="color:#94a3b8;">
-                <span class="material-symbols-outlined icon" style="font-size:16px;"></span>
+                <span class="material-symbols-outlined icon" style="font-size:16px;">help</span> Bantuan
             </a>
-            <div class="version"></div>
+            <div class="version">v1.0.0 | Al-Khoeriyah © 2026</div>
         </div>
     </aside>
 
+    <!-- Navbar -->
     @include('partials.navbar')
 
     <!-- Main Content -->
@@ -260,67 +246,29 @@
     @stack('scripts')
 
     <script>
+        // ===== TOGGLE SIDEBAR =====
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('sidebar-overlay');
-            if (sidebar && overlay) {
-                sidebar.classList.toggle('open');
-                overlay.classList.toggle('open');
-            }
+            sidebar.classList.toggle('open');
+            overlay.classList.toggle('open');
         }
+
+        // ===== NOTIFICATIONS =====
+        let notifCount = 0;
+        let notifData = [];
 
         function toggleNotifications() {
             const dropdown = document.getElementById('notif-dropdown');
-            if (dropdown) {
-                dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
-                const badge = document.getElementById('notif-badge');
-                if (badge) badge.classList.add('hidden');
+            const badge = document.getElementById('notif-badge');
+            if (dropdown.style.display === 'block') {
+                dropdown.style.display = 'none';
+            } else {
+                dropdown.style.display = 'block';
+                if (badge) {
+                    badge.style.display = 'none';
+                }
             }
-        }
-
-        function checkNotifications() {
-            fetch('/notifications/count')
-                .then(res => res.json())
-                .then(data => {
-                    const badge = document.getElementById('notif-badge');
-                    const list = document.getElementById('notif-list');
-                    if (badge) {
-                        if (data.count > 0) {
-                            badge.textContent = data.count;
-                            badge.classList.remove('hidden');
-                            badge.classList.add('flex');
-                        } else {
-                            badge.classList.add('hidden');
-                            badge.classList.remove('flex');
-                        }
-                    }
-
-                    if (list && data.notifications && data.notifications.length) {
-                        let html = '<div class="px-4 py-3 border-b border-slate-200 font-semibold text-sm text-slate-800">Notifikasi</div>';
-                        data.notifications.forEach(notif => {
-                            html += `
-                                <div class="px-4 py-3 border-b border-slate-100 text-sm text-slate-700 cursor-pointer hover:bg-slate-50" onclick="markAsRead(${notif.id})">
-                                    <div class="font-semibold">${notif.title}</div>
-                                    <div class="text-slate-500 text-xs mt-1">${notif.message}</div>
-                                    <div class="text-[11px] text-slate-400 mt-1">${notif.time}</div>
-                                </div>
-                            `;
-                        });
-                        list.innerHTML = html;
-                    }
-                })
-                .catch(() => {});
-        }
-
-        function markAsRead(id) {
-            fetch(`/notifications/mark-read/${id}`, {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
-            }).then(() => {
-                const dropdown = document.getElementById('notif-dropdown');
-                if (dropdown) dropdown.style.display = 'none';
-                checkNotifications();
-            });
         }
 
         document.addEventListener('click', function(e) {
@@ -331,53 +279,107 @@
             }
         });
 
+        function checkNotifications() {
+            fetch('/notifications/count')
+                .then(res => res.json())
+                .then(data => {
+                    notifCount = data.count || 0;
+                    notifData = data.notifications || [];
+
+                    const badge = document.getElementById('notif-badge');
+                    const list = document.getElementById('notif-list');
+                    const empty = document.getElementById('notif-empty');
+
+                    if (notifCount > 0) {
+                        if (badge) {
+                            badge.textContent = notifCount;
+                            badge.style.display = 'block';
+                        }
+
+                        let html = '';
+                        notifData.forEach(notif => {
+                            const bgColor = notif.type === 'danger' ? '#fef2f2' : '#fffbeb';
+                            const borderColor = notif.type === 'danger' ? '#fecaca' : '#fde68a';
+                            const textColor = notif.type === 'danger' ? '#dc2626' : '#d97706';
+
+                            html += `
+                                <div style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-size:13px;color:#0f172a;cursor:pointer;transition:background 0.15s;background:${bgColor};border-left:3px solid ${borderColor};"
+                                     onmouseover="this.style.background='#f8fafc'"
+                                     onmouseout="this.style.background='${bgColor}'"
+                                     onclick="markAsRead('${notif.id}')">
+                                    <div style="font-weight:600;color:${textColor};">${notif.title}</div>
+                                    <div style="font-size:12px;color:#475569;margin-top:2px;">${notif.message}</div>
+                                    <div style="font-size:10px;color:#94a3b8;margin-top:4px;">${notif.time}</div>
+                                </div>
+                            `;
+                        });
+
+                        if (list) {
+                            list.innerHTML = html;
+                        }
+                        if (empty) {
+                            empty.style.display = 'none';
+                        }
+                    } else {
+                        if (badge) {
+                            badge.style.display = 'none';
+                        }
+                        if (list) {
+                            list.innerHTML = '';
+                        }
+                        if (empty) {
+                            empty.style.display = 'block';
+                        }
+                    }
+                })
+                .catch(() => {});
+        }
+
+        function markAsRead(id) {
+            fetch(`/notifications/mark-read/${id}`, {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
+            }).then(() => {
+                checkNotifications();
+            });
+        }
+
+        function markAllRead() {
+            fetch('/notifications/mark-all-read', {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
+            }).then(() => {
+                checkNotifications();
+                const dropdown = document.getElementById('notif-dropdown');
+                if (dropdown) {
+                    dropdown.style.display = 'block';
+                }
+            });
+        }
+
+        // ===== SEARCH GLOBAL =====
         document.addEventListener('DOMContentLoaded', function() {
             const searchInput = document.getElementById('global-search');
-            const searchForm = document.getElementById('search-form');
-            if (searchInput && searchForm) {
+            if (searchInput) {
                 searchInput.addEventListener('keypress', function(e) {
                     if (e.key === 'Enter') {
-                        e.preventDefault();
-                        searchForm.submit();
+                        document.getElementById('search-form').submit();
                     }
                 });
             }
 
+            // Cek notifikasi setiap 30 detik
             checkNotifications();
             setInterval(checkNotifications, 30000);
         });
 
+        // ESC untuk menutup dropdown
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
+                document.getElementById('notif-dropdown').style.display = 'none';
                 const sidebar = document.getElementById('sidebar');
-                const dropdown = document.getElementById('notif-dropdown');
-                if (dropdown) dropdown.style.display = 'none';
-                if (sidebar && sidebar.classList.contains('open')) toggleSidebar();
+                if (sidebar.classList.contains('open')) toggleSidebar();
             }
-        });
-
-        window.addEventListener('resize', function() {
-            if (window.innerWidth > 768) {
-                const sidebar = document.getElementById('sidebar');
-                const overlay = document.getElementById('sidebar-overlay');
-                if (sidebar && overlay) {
-                    sidebar.classList.remove('open');
-                    overlay.classList.remove('open');
-                }
-            }
-        });
-
-        document.querySelectorAll('.menu-item').forEach(function(el) {
-            el.addEventListener('click', function() {
-                if (window.innerWidth <= 768) {
-                    const sidebar = document.getElementById('sidebar');
-                    const overlay = document.getElementById('sidebar-overlay');
-                    if (sidebar && overlay) {
-                        sidebar.classList.remove('open');
-                        overlay.classList.remove('open');
-                    }
-                }
-            });
         });
     </script>
 </body>

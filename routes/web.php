@@ -60,9 +60,12 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/absensi/manual', [AbsensiController::class, 'manual'])->name('absensi.manual');
     Route::post('/absensi/manual-store', [AbsensiController::class, 'manualStore'])->name('absensi.manual.store');
 
-    // Notifikasi
-    Route::get('/notifications/count', [NotificationController::class, 'count'])->name('notifications.count');
-    Route::post('/notifications/mark-read/{id}', [NotificationController::class, 'markRead'])->name('notifications.mark-read');
+   
+// ===== NOTIFICATIONS =====
+Route::get('/notifications/count', [NotificationController::class, 'count'])->name('notifications.count');
+Route::post('/notifications/mark-read/{id}', [NotificationController::class, 'markRead'])->name('notifications.mark-read');
+Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllRead'])->name('notifications.mark-all-read');
+Route::post('/notifications/reset', [NotificationController::class, 'resetNotifications'])->name('notifications.reset');
 });
 
 
