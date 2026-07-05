@@ -49,4 +49,55 @@ class DashboardController extends Controller
             'statistikLembaga'
         ));
     }
+
+    /**
+     * Tampilkan halaman reset data
+     */
+    public function resetData()
+    {
+        return view('dashboard.reset');
+    }
+
+    /**
+     * Proses reset data
+     */
+    public function resetDataProcess(Request $request)
+    {
+        $request->validate([
+            'password' => 'required|string'
+        ]);
+
+        // Ganti dengan password yang Anda inginkan!
+        $validPassword = 'reset123'; // Bisa diganti
+
+        if ($request->password !== $validPassword) {
+            return back()->with('error', '❌ Password salah! Data tidak dihapus.');
+        }
+
+        try {
+            DB::beginTransaction();
+
+            // Hapus semua data absensi
+            $absensiDeleted = Absensi::count();
+            Absensi::truncate();
+
+            // Hapus semua data peserta
+            $pesertaDeleted = Peserta::count();
+            Peserta::truncate();
+
+            // Reset auto-increment
+            DB::statement('ALTER TABLE absensi AUTO_INCREMENT = 1');
+            DB::statement('ALTER TABLE peserta AUTO_INCREMENT = 1');
+
+            DB::commit();
+
+            return redirect('/dashboard')->with('success', 
+                "✅ Berhasil menghapus {$pesertaDeleted} data peserta dan {$absensiDeleted} data absensi!"
+            );
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', '❌ Gagal reset data: ' . $e->getMessage());
+        }
+    }
 }

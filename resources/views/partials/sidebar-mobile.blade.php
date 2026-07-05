@@ -1,13 +1,18 @@
-<div class="flex flex-col h-full">
-    <!-- Logo -->
-    <div class="flex items-center gap-3 mb-6 pb-4 border-b border-[#E2E8F0]">
-        <div class="w-10 h-10 bg-[#00236f] rounded-xl flex items-center justify-center flex-shrink-0">
-            <span class="material-symbols-outlined text-white">school</span>
+<div class="flex flex-col h-full p-4">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-4 pb-4 border-b border-[#E2E8F0]">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-[#00236f] rounded-xl flex items-center justify-center flex-shrink-0">
+                <span class="material-symbols-outlined text-white">school</span>
+            </div>
+            <div>
+                <h2 class="font-bold text-[#00236f] text-sm">Al-Khoeriyah</h2>
+                <p class="text-[10px] text-[#64748B] uppercase tracking-wider">SISTEM ABSENSI</p>
+            </div>
         </div>
-        <div>
-            <h2 class="font-bold text-[#00236f] text-sm">Al-Khoeriyah</h2>
-            <p class="text-[10px] text-[#64748B] uppercase tracking-wider">SISTEM ABSENSI</p>
-        </div>
+        <button onclick="toggleSidebar()" class="text-[#64748B] hover:text-[#00236f] p-1 rounded-full hover:bg-[#e6e8ea]">
+            <span class="material-symbols-outlined">close</span>
+        </button>
     </div>
 
     <!-- Menu -->
@@ -29,14 +34,15 @@
         </a>
         <a href="{{ route('absensi.manual') }}" class="menu-item badge-admin {{ request()->routeIs('absensi.manual*') ? 'active' : '' }}">
             <span class="material-symbols-outlined icon">edit_note</span> Absensi Manual
+            <span class="badge-label">ADMIN</span>
         </a>
     </nav>
 
     <!-- Footer -->
     <div class="mt-auto pt-4 border-t border-[#E2E8F0]">
-        <a href="{{ route('reset.data') }}"
+        <a href="{{ route('reset.data') }}" 
            class="menu-item {{ request()->routeIs('reset.data*') ? 'active' : '' }} text-red-600 hover:bg-red-50">
-            <span class="material-symbols-outlined icon text-sm">delete_forever</span> Reset Data
+            <span class="material-symbols-outlined icon">delete_forever</span> Reset Data
         </a>
         <a href="#" class="menu-item text-[#64748B] hover:bg-[#e6e8ea]">
             <span class="material-symbols-outlined icon text-sm">help</span> Bantuan
