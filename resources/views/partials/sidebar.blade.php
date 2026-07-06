@@ -32,18 +32,40 @@
             <span class="badge-label">ADMIN</span>
         </a>
 
-        <!-- ===== TAMBAHKAN INI: RESET DATA ===== -->
+        <!-- ===== Pemisah Menu Admin ===== -->
+        <div class="border-t border-[#E2E8F0] my-2"></div>
+        <p class="text-[9px] text-[#94a3b8] uppercase tracking-wider px-3 py-1 font-semibold">Admin</p>
+
+        <!-- ===== RESET DATA ===== -->
         <a href="{{ route('reset.data') }}" 
            class="menu-item {{ request()->routeIs('reset.data*') ? 'active' : '' }}" 
-           style="color:#dc2626; border-left: 3px solid #dc2626; margin-top: 8px; border-top: 1px solid #e2e8f0; padding-top: 12px;">
+           style="color:#dc2626; border-left: 3px solid #dc2626;">
             <span class="material-symbols-outlined icon" style="color:#dc2626;">delete_forever</span> 
             Reset Data
             <span class="badge-label" style="background:#dc2626;">ADMIN</span>
+        </a>
+
+        <!-- ===== RESET PASSWORD ===== -->
+        <a href="{{ route('reset.password') }}" 
+           class="menu-item {{ request()->routeIs('reset.password*') ? 'active' : '' }}" 
+           style="color:#00236f; border-left: 3px solid #00236f;">
+            <span class="material-symbols-outlined icon" style="color:#00236f;">lock_reset</span> 
+            Reset Password
+            <span class="badge-label" style="background:#00236f;">ADMIN</span>
         </a>
     </nav>
 
     <!-- Footer -->
     <div class="mt-auto pt-4 border-t border-[#E2E8F0]">
+        <!-- ===== LOGOUT DI SIDEBAR ===== -->
+        <form method="POST" action="{{ route('logout') }}" class="mb-2">
+            @csrf
+            <button type="submit" class="menu-item w-full text-left" style="color:#dc2626; border-left: 3px solid #dc2626;">
+                <span class="material-symbols-outlined icon" style="color:#dc2626;">logout</span> 
+                Keluar
+            </button>
+        </form>
+
         <a href="#" class="menu-item text-[#64748B] hover:bg-[#e6e8ea]">
             <span class="material-symbols-outlined icon text-sm">help</span> Bantuan
         </a>
@@ -52,3 +74,64 @@
         </div>
     </div>
 </div>
+
+<style>
+    /* ===== MENU ITEM STYLES ===== */
+    .menu-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        border-radius: 6px;
+        color: #475569;
+        text-decoration: none;
+        font-size: 13px;
+        font-weight: 500;
+        transition: all 0.15s ease;
+        width: 100%;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+    }
+    .menu-item:hover {
+        background: #f1f5f9;
+    }
+    .menu-item.active {
+        background: #1e293b;
+        color: #ffffff;
+    }
+    .menu-item .icon {
+        font-size: 18px;
+        flex-shrink: 0;
+    }
+    .menu-item.badge-admin {
+        border-left: 3px solid #dc2626;
+        color: #dc2626;
+    }
+    .menu-item.badge-admin.active {
+        background: #dc2626;
+        color: #ffffff;
+    }
+    .badge-label {
+        font-size: 8px;
+        background: #dc2626;
+        color: #ffffff;
+        padding: 1px 8px;
+        border-radius: 20px;
+        margin-left: auto;
+        text-transform: uppercase;
+        font-weight: 700;
+    }
+    .menu-item.active .badge-label {
+        background: rgba(255,255,255,0.25);
+    }
+
+    /* ===== SCROLLBAR ===== */
+    .sidebar::-webkit-scrollbar {
+        width: 4px;
+    }
+    .sidebar::-webkit-scrollbar-thumb {
+        background: #c5c5d3;
+        border-radius: 10px;
+    }
+</style>

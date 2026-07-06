@@ -28,10 +28,21 @@
                     <label class="text-sm font-semibold text-[#444651]">Nama Sesi</label>
                     <input type="text" name="nama_sesi" class="w-full px-4 py-2.5 rounded-lg border border-[#c5c5d3] focus:ring-2 focus:ring-[#00236f] outline-none text-sm" placeholder="Contoh: Pembukaan Matsama" required>
                 </div>
+                
+                <!-- ===== JAM MULAI (BARU!) ===== -->
                 <div>
-                    <label class="text-sm font-semibold text-[#444651]">Batas Waktu</label>
-                    <input type="time" name="batas_waktu" class="w-full px-4 py-2.5 rounded-lg border border-[#c5c5d3] focus:ring-2 focus:ring-[#00236f] outline-none text-sm" required>
+                    <label class="text-sm font-semibold text-[#444651]">Jam Mulai Sesi</label>
+                    <input type="time" name="jam_mulai" class="w-full px-4 py-2.5 rounded-lg border border-[#c5c5d3] focus:ring-2 focus:ring-[#00236f] outline-none text-sm" required>
+                    <p class="text-xs text-[#64748B] mt-1">Waktu sesi dimulai</p>
                 </div>
+                
+                <!-- ===== BATAS WAKTU ===== -->
+                <div>
+                    <label class="text-sm font-semibold text-[#444651]">Batas Toleransi Absen</label>
+                    <input type="time" name="batas_waktu" class="w-full px-4 py-2.5 rounded-lg border border-[#c5c5d3] focus:ring-2 focus:ring-[#00236f] outline-none text-sm" required>
+                    <p class="text-xs text-[#64748B] mt-1">+3 menit toleransi setelah batas waktu</p>
+                </div>
+                
                 <div>
                     <label class="text-sm font-semibold text-[#444651]">Peruntukan</label>
                     <select name="peruntukan" class="w-full px-4 py-2.5 rounded-lg border border-[#c5c5d3] focus:ring-2 focus:ring-[#00236f] outline-none text-sm">
@@ -59,6 +70,7 @@
                     <thead>
                         <tr class="bg-[#00236f] text-white">
                             <th class="px-4 py-3 text-xs font-semibold">Nama Sesi</th>
+                            <th class="px-4 py-3 text-xs font-semibold">Jam Mulai</th>
                             <th class="px-4 py-3 text-xs font-semibold">Batas Waktu</th>
                             <th class="px-4 py-3 text-xs font-semibold">Peruntukan</th>
                             <th class="px-4 py-3 text-xs font-semibold">Status</th>
@@ -69,6 +81,7 @@
                         @forelse($sesi ?? [] as $s)
                         <tr class="hover:bg-[#f2f4f6] transition-colors">
                             <td class="px-4 py-3 text-sm font-medium">{{ $s->nama_sesi }}</td>
+                            <td class="px-4 py-3 font-mono text-sm">{{ $s->jam_mulai ?? '-' }}</td>
                             <td class="px-4 py-3 font-mono text-sm">{{ $s->batas_waktu }}</td>
                             <td class="px-4 py-3">
                                 <span class="px-2 py-0.5 rounded-full text-[10px] font-bold {{ $s->peruntukan == 'Semua' ? 'bg-[#00236f]/10 text-[#00236f]' : ($s->peruntukan == 'MA' ? 'bg-[#a53936]/10 text-[#a53936]' : 'bg-[#F59E0B]/10 text-[#F59E0B]') }}">
@@ -85,6 +98,9 @@
                                     <button onclick="toggleSesi({{ $s->id }})" class="p-1.5 rounded {{ $s->is_active ? 'bg-[#10B981]/20 text-[#10B981]' : 'bg-[#e6e8ea] text-[#64748B] hover:bg-[#00236f]/20 hover:text-[#00236f]' }} transition-all">
                                         <span class="material-symbols-outlined text-sm">{{ $s->is_active ? 'pause' : 'play_arrow' }}</span>
                                     </button>
+                                    <button onclick="editSesi({{ $s->id }})" class="p-1.5 rounded text-[#00236f] hover:bg-[#00236f]/10 transition-all">
+                                        <span class="material-symbols-outlined text-sm">edit</span>
+                                    </button>
                                     <button onclick="hapusSesi({{ $s->id }})" class="p-1.5 rounded text-[#EF4444] hover:bg-[#EF4444]/10 transition-all">
                                         <span class="material-symbols-outlined text-sm">delete</span>
                                     </button>
@@ -93,7 +109,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="5" class="px-4 py-8 text-center text-[#64748B]">
+                            <td colspan="6" class="px-4 py-8 text-center text-[#64748B]">
                                 <span class="material-symbols-outlined text-4xl block mb-2 text-[#c5c5d3]">event</span>
                                 Belum ada sesi
                             </td>
@@ -121,6 +137,9 @@
                 headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
             }).then(res => res.json()).then(data => { if(data.success) location.reload(); });
         }
+    }
+    function editSesi(id) {
+        alert('Fitur edit sesi akan segera hadir');
     }
 </script>
 @endpush

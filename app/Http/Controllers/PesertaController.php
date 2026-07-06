@@ -15,10 +15,27 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 
 class PesertaController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $peserta = Peserta::orderBy('nama_lengkap')->paginate(15);
+        $query = Peserta::query();
+        
+        // Search by NIS or Nama
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('nis', 'like', "%$search%")
+                  ->orWhere('nama_lengkap', 'like', "%$search%");
+            });
+        }
+        
+        // ===== FILTER LEMBAGA - BARU! =====
+        if ($request->filled('lembaga')) {
+            $query->where('lembaga', $request->lembaga);
+        }
+        
+        $peserta = $query->orderBy('nama_lengkap')->paginate(15);
         $total = Peserta::count();
+        
         return view('peserta.index', compact('peserta', 'total'));
     }
 

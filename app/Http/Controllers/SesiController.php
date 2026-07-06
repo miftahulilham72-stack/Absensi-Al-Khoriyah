@@ -19,6 +19,7 @@ class SesiController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'nama_sesi' => 'required|string|max:100',
+            'jam_mulai' => 'required|date_format:H:i',
             'batas_waktu' => 'required|date_format:H:i',
             'peruntukan' => 'required|in:MTs,MA,Semua',
         ]);
@@ -29,6 +30,7 @@ class SesiController extends Controller
 
         Sesi::create([
             'nama_sesi' => $request->nama_sesi,
+            'jam_mulai' => $request->jam_mulai . ':00',
             'batas_waktu' => $request->batas_waktu . ':00',
             'is_active' => false,
             'peruntukan' => $request->peruntukan,
@@ -43,6 +45,7 @@ class SesiController extends Controller
 
         $validator = Validator::make($request->all(), [
             'nama_sesi' => 'required|string|max:100',
+            'jam_mulai' => 'required|date_format:H:i',
             'batas_waktu' => 'required|date_format:H:i',
             'peruntukan' => 'required|in:MTs,MA,Semua',
         ]);
@@ -53,6 +56,7 @@ class SesiController extends Controller
 
         $sesi->update([
             'nama_sesi' => $request->nama_sesi,
+            'jam_mulai' => $request->jam_mulai . ':00',
             'batas_waktu' => $request->batas_waktu . ':00',
             'peruntukan' => $request->peruntukan,
         ]);
@@ -80,7 +84,6 @@ class SesiController extends Controller
     {
         $sesi = Sesi::findOrFail($id);
         
-        // Jika akan aktif, nonaktifkan sesi lain
         if (!$sesi->is_active) {
             Sesi::where('is_active', true)->update(['is_active' => false]);
         }

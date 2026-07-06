@@ -75,9 +75,10 @@ class AbsensiController extends Controller
                 throw new \Exception($peserta->nama_lengkap . ' sudah absen!');
             }
 
-            // Tentukan status
             $jamSekarang = now()->format('H:i:s');
-            $status = $jamSekarang <= $sesi->batas_waktu ? 'Tepat Waktu' : 'Terlambat';
+            
+            // ===== LOGIKA STATUS BARU =====
+            $status = $sesi->getStatus($jamSekarang);
 
             // Simpan absensi
             Absensi::create([
@@ -228,158 +229,8 @@ class AbsensiController extends Controller
     }
 
     // ================================================================
-    // ===== ABSENSI MANUAL - FITUR UNTUK PANITIA/ADMIN =====
+    // ===== KIOSK MODE =====
     // ================================================================
-
-    /**
-     * Tampilkan halaman absensi manual untuk panitia
-     */
-    public function manual(Request $request)
-    {
-        $sesiAktif = Sesi::where('is_active', true)->first();
-        
-        // Ambil semua peserta dengan filter
-        $query = Peserta::query();
-        
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('nis', 'like', "%$search%")
-                  ->orWhere('nama_lengkap', 'like', "%$search%");
-            });
-        }
-
-        // ===== FILTER LEMBAGA - BARU! =====
-        if ($request->filled('lembaga')) {
-            $query->where('lembaga', $request->lembaga);
-        }
-
-        if ($request->filled('status_filter')) {
-            $filter = $request->status_filter;
-            if ($filter == 'belum') {
-                // Hanya tampilkan yang belum absen di sesi aktif
-                if ($sesiAktif) {
-                    $sudahAbsenIds = Absensi::where('sesi_id', $sesiAktif->id)
-                                            ->pluck('peserta_id')
-                                            ->toArray();
-                    $query->whereNotIn('id', $sudahAbsenIds);
-                }
-            } elseif ($filter == 'sudah') {
-                // Hanya tampilkan yang sudah absen di sesi aktif
-                if ($sesiAktif) {
-                    $sudahAbsenIds = Absensi::where('sesi_id', $sesiAktif->id)
-                                            ->pluck('peserta_id')
-                                            ->toArray();
-                    $query->whereIn('id', $sudahAbsenIds);
-                }
-            }
-        }
-
-        // Eager load absensi manual untuk sesi aktif
-        if ($sesiAktif) {
-            $query->with(['absensi_manual' => function($q) use ($sesiAktif) {
-                $q->where('sesi_id', $sesiAktif->id);
-            }]);
-        }
-
-        $peserta = $query->orderBy('nama_lengkap')->paginate(20);
-
-        // Statistik
-        $statistik = [
-            'hadir' => 0,
-            'sakit' => 0,
-            'izin' => 0,
-            'alpa' => 0
-        ];
-        
-        if ($sesiAktif) {
-            $statistik['hadir'] = Absensi::where('sesi_id', $sesiAktif->id)
-                                        ->where('keterangan', 'Hadir')
-                                        ->count();
-            $statistik['sakit'] = Absensi::where('sesi_id', $sesiAktif->id)
-                                        ->where('keterangan', 'Sakit')
-                                        ->count();
-            $statistik['izin'] = Absensi::where('sesi_id', $sesiAktif->id)
-                                        ->where('keterangan', 'Izin')
-                                        ->count();
-            $statistik['alpa'] = Absensi::where('sesi_id', $sesiAktif->id)
-                                        ->where('keterangan', 'Alpa')
-                                        ->count();
-        }
-
-        return view('absensi.manual', compact('peserta', 'sesiAktif', 'statistik'));
-    }
-
-    /**
-     * Simpan absensi manual dari panitia
-     */
-    public function manualStore(Request $request)
-    {
-        $request->validate([
-            'changes' => 'required|array'
-        ]);
-
-        try {
-            DB::beginTransaction();
-
-            $sesiAktif = Sesi::where('is_active', true)->first();
-            if (!$sesiAktif) {
-                throw new \Exception('Tidak ada sesi aktif!');
-            }
-
-            $adminName = Auth::user()->name ?? 'Admin';
-            $saved = 0;
-
-            foreach ($request->changes as $pesertaId => $keterangan) {
-                // Cek apakah peserta sudah absen di sesi ini
-                $existing = Absensi::where('peserta_id', $pesertaId)
-                                   ->where('sesi_id', $sesiAktif->id)
-                                   ->first();
-
-                if ($existing) {
-                    // Update jika sudah ada
-                    $existing->update([
-                        'keterangan' => $keterangan,
-                        'absen_manual' => true,
-                        'diabsensi_oleh' => $adminName,
-                        'jam_masuk' => now()->format('H:i:s'),
-                    ]);
-                } else {
-                    // Buat baru
-                    $peserta = Peserta::find($pesertaId);
-                    if (!$peserta) {
-                        continue;
-                    }
-                    
-                    Absensi::create([
-                        'peserta_id' => $pesertaId,
-                        'sesi_id' => $sesiAktif->id,
-                        'jam_masuk' => now()->format('H:i:s'),
-                        'status' => $keterangan == 'Hadir' ? 'Tepat Waktu' : 'Terlambat',
-                        'keterangan' => $keterangan,
-                        'ttd_image' => 'manual_absensi',
-                        'absen_manual' => true,
-                        'diabsensi_oleh' => $adminName,
-                    ]);
-                }
-                $saved++;
-            }
-
-            DB::commit();
-
-            return response()->json([
-                'success' => true,
-                'message' => "Berhasil menyimpan $saved data absensi manual!"
-            ]);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 400);
-        }
-    }
 
     /**
      * Tampilkan halaman kiosk untuk peserta
@@ -387,7 +238,7 @@ class AbsensiController extends Controller
     public function kiosk(Request $request)
     {
         $lembaga = $request->get('lembaga', 'semua');
-
+        
         if (!in_array($lembaga, ['MTs', 'MA', 'semua'])) {
             $lembaga = 'semua';
         }
@@ -422,20 +273,24 @@ class AbsensiController extends Controller
             $ttdBase64 = $request->ttd;
             $lembagaFilter = $request->lembaga;
 
+            // Cari peserta
             $peserta = Peserta::where('nis', $nis)->first();
             if (!$peserta) {
                 throw new \Exception('NIS tidak terdaftar!');
             }
 
+            // Validasi lembaga
             if ($lembagaFilter !== 'semua' && $peserta->lembaga !== $lembagaFilter) {
                 throw new \Exception('NIS terdaftar di ' . $peserta->lembaga . ', bukan ' . $lembagaFilter . '!');
             }
 
+            // Cari sesi aktif
             $sesi = Sesi::where('is_active', true)->first();
             if (!$sesi) {
                 throw new \Exception('Tidak ada sesi aktif!');
             }
 
+            // Cek duplikat
             $sudahAbsen = Absensi::where('peserta_id', $peserta->id)
                                 ->where('sesi_id', $sesi->id)
                                 ->exists();
@@ -443,11 +298,14 @@ class AbsensiController extends Controller
                 throw new \Exception($peserta->nama_lengkap . ' sudah absen!');
             }
 
+            // Simpan TTD
             $ttdPath = $this->saveTtdImage($ttdBase64, $nis);
 
+            // Tentukan status
             $jamSekarang = now()->format('H:i:s');
-            $status = $jamSekarang <= $sesi->batas_waktu ? 'Tepat Waktu' : 'Terlambat';
+            $status = $sesi->getStatus($jamSekarang);
 
+            // Simpan absensi
             Absensi::create([
                 'peserta_id' => $peserta->id,
                 'sesi_id' => $sesi->id,
@@ -485,17 +343,17 @@ class AbsensiController extends Controller
     public function counter(Request $request)
     {
         $today = now()->toDateString();
-
+        
         $mts = Absensi::whereDate('created_at', $today)
                       ->whereHas('peserta', function($q) {
                           $q->where('lembaga', 'MTs');
                       })->count();
-
+        
         $ma = Absensi::whereDate('created_at', $today)
                      ->whereHas('peserta', function($q) {
                          $q->where('lembaga', 'MA');
                      })->count();
-
+        
         $total = $mts + $ma;
         $totalSiswa = Peserta::count();
 
@@ -505,5 +363,136 @@ class AbsensiController extends Controller
             'total' => $total,
             'total_siswa' => $totalSiswa
         ]);
+    }
+
+    // ================================================================
+    // ===== ABSENSI MANUAL (UNTUK PANITIA/ADMIN) =====
+    // ================================================================
+
+    /**
+     * Tampilkan halaman absensi manual untuk panitia
+     */
+    public function manual(Request $request)
+    {
+        $sesiAktif = Sesi::where('is_active', true)->first();
+        
+        $query = Peserta::query();
+        
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('nis', 'like', "%$search%")
+                  ->orWhere('nama_lengkap', 'like', "%$search%");
+            });
+        }
+
+        if ($request->filled('lembaga')) {
+            $query->where('lembaga', $request->lembaga);
+        }
+
+        if ($request->filled('status_filter')) {
+            $filter = $request->status_filter;
+            if ($filter == 'belum' && $sesiAktif) {
+                $sudahAbsenIds = Absensi::where('sesi_id', $sesiAktif->id)
+                                        ->pluck('peserta_id')
+                                        ->toArray();
+                $query->whereNotIn('id', $sudahAbsenIds);
+            } elseif ($filter == 'sudah' && $sesiAktif) {
+                $sudahAbsenIds = Absensi::where('sesi_id', $sesiAktif->id)
+                                        ->pluck('peserta_id')
+                                        ->toArray();
+                $query->whereIn('id', $sudahAbsenIds);
+            }
+        }
+
+        if ($sesiAktif) {
+            $query->with(['absensi_manual' => function($q) use ($sesiAktif) {
+                $q->where('sesi_id', $sesiAktif->id);
+            }]);
+        }
+
+        $peserta = $query->orderBy('nama_lengkap')->paginate(20);
+
+        $statistik = ['hadir' => 0, 'sakit' => 0, 'izin' => 0, 'alpa' => 0];
+        if ($sesiAktif) {
+            $statistik['hadir'] = Absensi::where('sesi_id', $sesiAktif->id)->where('keterangan', 'Hadir')->count();
+            $statistik['sakit'] = Absensi::where('sesi_id', $sesiAktif->id)->where('keterangan', 'Sakit')->count();
+            $statistik['izin'] = Absensi::where('sesi_id', $sesiAktif->id)->where('keterangan', 'Izin')->count();
+            $statistik['alpa'] = Absensi::where('sesi_id', $sesiAktif->id)->where('keterangan', 'Alpa')->count();
+        }
+
+        return view('absensi.manual', compact('peserta', 'sesiAktif', 'statistik'));
+    }
+
+    /**
+     * Simpan absensi manual dari panitia
+     */
+    public function manualStore(Request $request)
+    {
+        $request->validate([
+            'changes' => 'required|array'
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $sesiAktif = Sesi::where('is_active', true)->first();
+            if (!$sesiAktif) {
+                throw new \Exception('Tidak ada sesi aktif!');
+            }
+
+            $adminName = Auth::user()->name ?? 'Admin';
+            $saved = 0;
+
+            foreach ($request->changes as $pesertaId => $keterangan) {
+                $existing = Absensi::where('peserta_id', $pesertaId)
+                                   ->where('sesi_id', $sesiAktif->id)
+                                   ->first();
+
+                $jamSekarang = now()->format('H:i:s');
+                
+                // ===== LOGIKA STATUS BARU =====
+                $status = $sesiAktif->getStatus($jamSekarang);
+
+                if ($existing) {
+                    $existing->update([
+                        'keterangan' => $keterangan,
+                        'absen_manual' => true,
+                        'diabsensi_oleh' => $adminName,
+                        'jam_masuk' => $jamSekarang,
+                        'status' => $status,
+                    ]);
+                } else {
+                    $peserta = Peserta::find($pesertaId);
+                    if (!$peserta) continue;
+                    
+                    Absensi::create([
+                        'peserta_id' => $pesertaId,
+                        'sesi_id' => $sesiAktif->id,
+                        'jam_masuk' => $jamSekarang,
+                        'status' => $status,
+                        'keterangan' => $keterangan,
+                        'ttd_image' => 'manual_absensi',
+                        'absen_manual' => true,
+                        'diabsensi_oleh' => $adminName,
+                    ]);
+                }
+                $saved++;
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => "Berhasil menyimpan $saved data absensi manual!"
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 400);
+        }
     }
 }

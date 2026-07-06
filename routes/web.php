@@ -27,6 +27,15 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/', fn() => redirect('/dashboard'));
     
     // ================================================================
+    // RESET DATA & PASSWORD
+    // ================================================================
+    Route::get('/reset-data', [DashboardController::class, 'resetData'])->name('reset.data');
+    Route::post('/reset-data', [DashboardController::class, 'resetDataProcess'])->name('reset.data.process');
+    
+    Route::get('/reset-password', [DashboardController::class, 'resetPassword'])->name('reset.password');
+    Route::post('/reset-password', [DashboardController::class, 'resetPasswordProcess'])->name('reset.password.process');
+    
+    // ================================================================
     // PESERTA ROUTES - URUTAN PENTING!
     // ================================================================
     
@@ -42,6 +51,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/peserta', [PesertaController::class, 'index'])->name('peserta.index');
     Route::get('/peserta/create', [PesertaController::class, 'create'])->name('peserta.create');
     Route::post('/peserta', [PesertaController::class, 'store'])->name('peserta.store');
+    Route::get('/peserta', [PesertaController::class, 'index'])->name('peserta.index');
     Route::get('/peserta/{id}', [PesertaController::class, 'show'])->name('peserta.show');
     Route::get('/peserta/{id}/edit', [PesertaController::class, 'edit'])->name('peserta.edit');
     Route::put('/peserta/{id}', [PesertaController::class, 'update'])->name('peserta.update');

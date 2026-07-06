@@ -10,6 +10,9 @@ use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
+    /**
+     * Tampilkan halaman dashboard
+     */
     public function index()
     {
         // Total peserta
@@ -23,9 +26,12 @@ class DashboardController extends Controller
         $hadir = Absensi::whereDate('created_at', $today)->count();
         $belumHadir = $totalPeserta - $hadir;
         
-        // Terlambat hari ini
+        // Terlambat hari ini (dengan logika baru)
         $terlambat = Absensi::whereDate('created_at', $today)
-                            ->where('status', 'Terlambat')
+                            ->where(function($q) {
+                                $q->where('status', 'Terlambat (Toleransi)')
+                                  ->orWhere('status', 'Terlambat');
+                            })
                             ->count();
         
         // Log terbaru
@@ -59,7 +65,7 @@ class DashboardController extends Controller
     }
 
     /**
-     * Proses reset data
+     * Proses reset data (hapus semua data peserta & absensi)
      */
     public function resetDataProcess(Request $request)
     {
@@ -67,8 +73,8 @@ class DashboardController extends Controller
             'password' => 'required|string'
         ]);
 
-        // Ganti dengan password yang Anda inginkan!
-        $validPassword = 'reset123'; // Bisa diganti
+        // ===== GANTI PASSWORD DI SINI! =====
+        $validPassword = 'reset123'; // Bisa diganti sesuai keinginan
 
         if ($request->password !== $validPassword) {
             return back()->with('error', '❌ Password salah! Data tidak dihapus.');
@@ -99,5 +105,35 @@ class DashboardController extends Controller
             DB::rollBack();
             return back()->with('error', '❌ Gagal reset data: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Tampilkan halaman reset password admin
+     */
+    public function resetPassword()
+    {
+        return view('dashboard.reset-password');
+    }
+
+    /**
+     * Proses reset password admin
+     */
+    public function resetPasswordProcess(Request $request)
+    {
+        $request->validate([
+            'old_password' => 'required|string',
+            'new_password' => 'required|string|min:4|confirmed',
+        ]);
+
+        $user = auth()->user();
+
+        if (!\Illuminate\Support\Facades\Hash::check($request->old_password, $user->password)) {
+            return back()->with('error', '❌ Password lama salah!');
+        }
+
+        $user->password = \Illuminate\Support\Facades\Hash::make($request->new_password);
+        $user->save();
+
+        return back()->with('success', '✅ Password berhasil diubah!');
     }
 }
