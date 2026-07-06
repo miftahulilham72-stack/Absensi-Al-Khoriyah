@@ -271,7 +271,7 @@ class PesertaController extends Controller
             $sheet->getStyle('A1:D4')->applyFromArray($styleArray);
 
             $writer = new Xlsx($spreadsheet);
-            
+              
             header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             header('Content-Disposition: attachment;filename="template_import_peserta.xlsx"');
             header('Cache-Control: max-age=0');
@@ -291,11 +291,51 @@ class PesertaController extends Controller
     }
 
     // ================================================================
-    // 🗑️ HAPUS SEMUA DATA (MASS DELETE) - VERSION 2 (TANPA TRANSACTION)
+    // 🆕 TAMBAH PESERTA CEPAT DARI KIOSK
+    // ================================================================
+    public function cepat(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'nis' => 'required|string|unique:peserta,nis|max:20',
+            'nama_lengkap' => 'required|string|max:100',
+            'lembaga' => 'required|in:MTs,MA',
+            'gugus' => 'nullable|string|max:50',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first()
+            ], 422);
+        }
+
+        try {
+            $peserta = Peserta::create([
+                'nis' => $request->nis,
+                'nama_lengkap' => $request->nama_lengkap,
+                'lembaga' => $request->lembaga,
+                'gugus' => $request->gugus,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Peserta berhasil didaftarkan!',
+                'data' => $peserta
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mendaftarkan: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // ================================================================
+    // 🗑️ HAPUS SEMUA DATA (MASS DELETE)
     // ================================================================
     public function hapusSemua(Request $request)
     {
-        // Validasi password
         $validator = Validator::make($request->all(), [
             'password' => 'required|string'
         ]);
@@ -307,7 +347,6 @@ class PesertaController extends Controller
             ], 422);
         }
 
-        // Cek password admin
         $user = Auth::user();
         if (!Hash::check($request->password, $user->password)) {
             return response()->json([
@@ -317,18 +356,17 @@ class PesertaController extends Controller
         }
 
         try {
-            // Hitung jumlah data sebelum dihapus
             $absensiCount = Absensi::count();
             $pesertaCount = Peserta::count();
 
-            // ===== MATIKAN FOREIGN KEY CHECK =====
+            // Matikan foreign key check
             DB::statement('SET FOREIGN_KEY_CHECKS=0');
 
             // Hapus semua data
             Absensi::truncate();
             Peserta::truncate();
 
-            // ===== NYALAKAN KEMBALI FOREIGN KEY CHECK =====
+            // Nyalakan kembali foreign key check
             DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
             // Reset auto-increment
@@ -341,7 +379,6 @@ class PesertaController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            // Pastikan foreign key check tetap nyala
             DB::statement('SET FOREIGN_KEY_CHECKS=1');
             
             return response()->json([
