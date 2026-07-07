@@ -178,7 +178,8 @@ class AbsensiController extends Controller
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
 
-        $headers = ['No', 'NIS', 'Nama Lengkap', 'Lembaga', 'Sesi', 'Jam Masuk', 'Status', 'Keterangan', 'Absen Manual', 'Diabsensi Oleh', 'Waktu Absen'];
+        // Header dengan tambahan kolom TTD
+        $headers = ['No', 'NIS', 'Nama Lengkap', 'Lembaga', 'Sesi', 'Jam Masuk', 'Status', 'Keterangan', 'Absen Manual', 'Diabsensi Oleh', 'Waktu Absen', 'TTD'];
         foreach ($headers as $i => $header) {
             $col = chr(65 + $i);
             $sheet->setCellValue($col . '1', $header);
@@ -189,6 +190,7 @@ class AbsensiController extends Controller
             $sheet->getStyle($col . '1')->getFont()->getColor()->setARGB('FFFFFFFF');
         }
 
+        // Data
         foreach ($absensi as $i => $data) {
             $row = $i + 2;
             $sheet->setCellValue('A' . $row, $i + 1);
@@ -202,9 +204,12 @@ class AbsensiController extends Controller
             $sheet->setCellValue('I' . $row, $data->absen_manual ? 'Ya' : 'Tidak');
             $sheet->setCellValue('J' . $row, $data->diabsensi_oleh ?? '-');
             $sheet->setCellValue('K' . $row, $data->created_at ? $data->created_at->format('H:i:s d/m/Y') : '-');
+            // Kolom L: TTD (path gambar)
+            $sheet->setCellValue('L' . $row, ($data->ttd_image && $data->ttd_image != 'manual_absensi') ? asset($data->ttd_image) : 'Manual');
         }
 
-        foreach (range('A', 'K') as $col) {
+        // Auto size
+        foreach (range('A', 'L') as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
 
@@ -364,6 +369,7 @@ class AbsensiController extends Controller
         
         $query = Peserta::query();
         
+        // Filter search
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
@@ -372,10 +378,12 @@ class AbsensiController extends Controller
             });
         }
 
+        // Filter lembaga
         if ($request->filled('lembaga')) {
             $query->where('lembaga', $request->lembaga);
         }
 
+        // Filter status
         if ($request->filled('status_filter')) {
             $filter = $request->status_filter;
             if ($filter == 'belum' && $sesiAktif) {
@@ -391,6 +399,15 @@ class AbsensiController extends Controller
             }
         }
 
+        // ===== AMBIL PESERTA YANG SUDAH ABSEN DI SESI AKTIF =====
+        $sudahAbsenIds = [];
+        if ($sesiAktif) {
+            $sudahAbsenIds = Absensi::where('sesi_id', $sesiAktif->id)
+                                    ->pluck('peserta_id')
+                                    ->toArray();
+        }
+
+        // Eager load absensi manual
         if ($sesiAktif) {
             $query->with(['absensi_manual' => function($q) use ($sesiAktif) {
                 $q->where('sesi_id', $sesiAktif->id);
@@ -407,7 +424,8 @@ class AbsensiController extends Controller
             $statistik['alpa'] = Absensi::where('sesi_id', $sesiAktif->id)->where('keterangan', 'Alpa')->count();
         }
 
-        return view('absensi.manual', compact('peserta', 'sesiAktif', 'statistik'));
+        // Kirim data ke view
+        return view('absensi.manual', compact('peserta', 'sesiAktif', 'statistik', 'sudahAbsenIds'));
     }
 
     public function manualStore(Request $request)

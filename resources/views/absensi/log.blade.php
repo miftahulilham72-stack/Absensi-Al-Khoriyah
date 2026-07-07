@@ -40,6 +40,7 @@
                 <select name="status" class="w-full px-4 py-2 rounded-lg border border-[#c5c5d3] text-sm focus:ring-2 focus:ring-[#00236f] outline-none">
                     <option value="">Semua</option>
                     <option value="Tepat Waktu" {{ request('status') == 'Tepat Waktu' ? 'selected' : '' }}>Tepat Waktu</option>
+                    <option value="Terlambat (Toleransi)" {{ request('status') == 'Terlambat (Toleransi)' ? 'selected' : '' }}>Terlambat (Toleransi)</option>
                     <option value="Terlambat" {{ request('status') == 'Terlambat' ? 'selected' : '' }}>Terlambat</option>
                 </select>
             </div>
@@ -57,21 +58,21 @@
                 <thead>
                     <tr class="bg-[#00236f] text-white">
                         <th class="px-4 py-3 text-xs font-semibold">NO</th>
+                        <th class="px-4 py-3 text-xs font-semibold">NAMA LENGKAP</th>
                         <th class="px-4 py-3 text-xs font-semibold">NIS</th>
-                        <th class="px-4 py-3 text-xs font-semibold">Nama Lengkap</th>
-                        <th class="px-4 py-3 text-xs font-semibold">Lembaga</th>
-                        <th class="px-4 py-3 text-xs font-semibold">Sesi</th>
-                        <th class="px-4 py-3 text-xs font-semibold">Jam Masuk</th>
-                        <th class="px-4 py-3 text-xs font-semibold">Status</th>
-                        <th class="px-4 py-3 text-xs font-semibold">Waktu</th>
+                        <th class="px-4 py-3 text-xs font-semibold">LEMBAGA</th>
+                        <th class="px-4 py-3 text-xs font-semibold">SESI</th>
+                        <th class="px-4 py-3 text-xs font-semibold">JAM MASUK</th>
+                        <th class="px-4 py-3 text-xs font-semibold">STATUS</th>
+                        <th class="px-4 py-3 text-xs font-semibold text-center">TTD</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-[#E2E8F0]">
                     @forelse($absensi ?? [] as $log)
                     <tr class="hover:bg-[#f2f4f6] transition-colors">
                         <td class="px-4 py-3 text-[#64748B] text-sm">{{ $loop->iteration }}</td>
-                        <td class="px-4 py-3 font-mono text-sm text-[#00236f]">{{ $log->peserta->nis ?? '-' }}</td>
                         <td class="px-4 py-3 text-sm font-medium">{{ $log->peserta->nama_lengkap ?? '-' }}</td>
+                        <td class="px-4 py-3 font-mono text-sm text-[#00236f]">{{ $log->peserta->nis ?? '-' }}</td>
                         <td class="px-4 py-3">
                             <span class="px-2 py-0.5 rounded-full text-[10px] font-bold {{ ($log->peserta->lembaga ?? '') == 'MA' ? 'bg-[#00236f]/10 text-[#00236f]' : 'bg-[#a53936]/10 text-[#a53936]' }}">
                                 {{ $log->peserta->lembaga ?? '-' }}
@@ -80,12 +81,29 @@
                         <td class="px-4 py-3 text-sm text-[#64748B]">{{ $log->sesi->nama_sesi ?? '-' }}</td>
                         <td class="px-4 py-3 font-mono text-sm">{{ $log->jam_masuk ?? '-' }}</td>
                         <td class="px-4 py-3">
-                            <span class="px-3 py-1 rounded-full text-[10px] font-bold {{ ($log->status ?? '') == 'Tepat Waktu' ? 'bg-[#10B981]/10 text-[#10B981]' : 'bg-[#EF4444]/10 text-[#EF4444]' }}">
+                            @php
+                                $statusClass = match($log->status ?? '') {
+                                    'Tepat Waktu' => 'bg-[#10b98115] text-[#10b981]',
+                                    'Terlambat (Toleransi)' => 'bg-[#f59e0b15] text-[#f59e0b]',
+                                    'Terlambat' => 'bg-[#ef444415] text-[#ef4444]',
+                                    default => 'bg-[#e2e8f0] text-[#94a3b8]'
+                                };
+                            @endphp
+                            <span class="px-3 py-1 rounded-full text-[10px] font-bold {{ $statusClass }}">
                                 {{ $log->status ?? '-' }}
                             </span>
                         </td>
-                        <td class="px-4 py-3 text-sm text-[#64748B]">
-                            {{ $log->created_at ? $log->created_at->format('H:i:s d/m/Y') : '-' }}
+                        <td class="px-4 py-3 text-center">
+                            @if($log->ttd_image && $log->ttd_image != 'manual_absensi')
+                                <img src="{{ asset($log->ttd_image) }}" 
+                                     style="width:50px;height:25px;object-fit:contain;border:1px solid #e2e8f0;border-radius:4px;cursor:pointer;transition:transform 0.2s;"
+                                     onmouseover="this.style.transform='scale(2.5)';this.style.zIndex='10';this.style.position='relative';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.2)';"
+                                     onmouseout="this.style.transform='scale(1)';this.style.zIndex='auto';this.style.position='static';this.style.boxShadow='none';"
+                                     onclick="showTtd('{{ asset($log->ttd_image) }}', '{{ $log->peserta->nama_lengkap ?? 'TTD' }}')"
+                                     alt="TTD {{ $log->peserta->nama_lengkap ?? 'TTD' }}">
+                            @else
+                                <span style="font-size:10px;color:#94a3b8;background:#f1f5f9;padding:2px 8px;border-radius:4px;">Manual</span>
+                            @endif
                         </td>
                     </tr>
                     @empty
@@ -104,4 +122,44 @@
         </div>
     </div>
 </div>
+
+<!-- ================================================================ -->
+<!-- MODAL ZOOM TTD -->
+<!-- ================================================================ -->
+<div id="modalTtd" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:1000;align-items:center;justify-content:center;padding:20px;">
+    <div style="background:#fff;border-radius:16px;padding:24px;max-width:420px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);" onclick="event.stopPropagation();">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <h3 style="font-size:16px;font-weight:700;color:#0f172a;" id="ttdNama">✍️ Tanda Tangan</h3>
+            <button onclick="closeTtd()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#94a3b8;padding:0 8px;">✕</button>
+        </div>
+        <div style="border:2px solid #e2e8f0;border-radius:8px;padding:16px;background:#f8fafc;">
+            <img id="ttdImage" src="" style="width:100%;max-height:300px;object-fit:contain;">
+        </div>
+        <p style="font-size:11px;color:#94a3b8;margin-top:8px;">Klik di luar gambar atau tekan ESC untuk menutup</p>
+    </div>
+</div>
+
+<script>
+    function showTtd(src, nama) {
+        document.getElementById('ttdImage').src = src;
+        document.getElementById('ttdNama').textContent = '✍️ ' + nama;
+        document.getElementById('modalTtd').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeTtd() {
+        document.getElementById('modalTtd').style.display = 'none';
+        document.body.style.overflow = '';
+    }
+
+    // Tutup dengan ESC
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeTtd();
+    });
+
+    // Tutup klik di luar modal
+    document.getElementById('modalTtd').addEventListener('click', function(e) {
+        if (e.target === this) closeTtd();
+    });
+</script>
 @endsection
