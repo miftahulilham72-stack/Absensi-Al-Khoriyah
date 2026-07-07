@@ -8,6 +8,9 @@ use Illuminate\Support\Facades\Validator;
 
 class SesiController extends Controller
 {
+    /**
+     * Display a listing of the resource.
+     */
     public function index()
     {
         $sesi = Sesi::orderBy('created_at', 'desc')->get();
@@ -15,6 +18,17 @@ class SesiController extends Controller
         return view('sesi.index', compact('sesi', 'sesiAktif'));
     }
 
+    /**
+     * Show the form for creating a new resource.
+     */
+    public function create()
+    {
+        return view('sesi.create');
+    }
+
+    /**
+     * Store a newly created resource in storage.
+     */
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -36,9 +50,30 @@ class SesiController extends Controller
             'peruntukan' => $request->peruntukan,
         ]);
 
-        return back()->with('success', 'Sesi berhasil ditambahkan!');
+        return back()->with('success', '✅ Sesi berhasil ditambahkan!');
     }
 
+    /**
+     * Display the specified resource.
+     */
+    public function show($id)
+    {
+        $sesi = Sesi::findOrFail($id);
+        return response()->json($sesi);
+    }
+
+    /**
+     * Show the form for editing the specified resource.
+     */
+    public function edit($id)
+    {
+        $sesi = Sesi::findOrFail($id);
+        return view('sesi.edit', compact('sesi'));
+    }
+
+    /**
+     * Update the specified resource in storage.
+     */
     public function update(Request $request, $id)
     {
         $sesi = Sesi::findOrFail($id);
@@ -51,7 +86,10 @@ class SesiController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors()
+            ], 422);
         }
 
         $sesi->update([
@@ -61,9 +99,15 @@ class SesiController extends Controller
             'peruntukan' => $request->peruntukan,
         ]);
 
-        return response()->json(['success' => true, 'message' => 'Sesi berhasil diupdate!']);
+        return response()->json([
+            'success' => true,
+            'message' => '✅ Sesi berhasil diupdate!'
+        ]);
     }
 
+    /**
+     * Remove the specified resource from storage.
+     */
     public function destroy($id)
     {
         $sesi = Sesi::findOrFail($id);
@@ -71,19 +115,26 @@ class SesiController extends Controller
         if ($sesi->is_active) {
             return response()->json([
                 'success' => false,
-                'message' => 'Tidak bisa menghapus sesi yang sedang aktif!'
+                'message' => '❌ Tidak bisa menghapus sesi yang sedang aktif!'
             ], 400);
         }
 
         $sesi->delete();
 
-        return response()->json(['success' => true, 'message' => 'Sesi berhasil dihapus!']);
+        return response()->json([
+            'success' => true,
+            'message' => '✅ Sesi berhasil dihapus!'
+        ]);
     }
 
+    /**
+     * Toggle active status of a session.
+     */
     public function toggleActive($id)
     {
         $sesi = Sesi::findOrFail($id);
         
+        // Jika akan diaktifkan, nonaktifkan sesi lain
         if (!$sesi->is_active) {
             Sesi::where('is_active', true)->update(['is_active' => false]);
         }
@@ -94,7 +145,7 @@ class SesiController extends Controller
         $status = $sesi->is_active ? 'diaktifkan' : 'dinonaktifkan';
         return response()->json([
             'success' => true,
-            'message' => "Sesi {$sesi->nama_sesi} berhasil $status!",
+            'message' => "✅ Sesi {$sesi->nama_sesi} berhasil $status!",
             'is_active' => $sesi->is_active
         ]);
     }

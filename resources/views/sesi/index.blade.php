@@ -27,22 +27,26 @@
                 <div>
                     <label class="text-sm font-semibold text-[#444651]">Nama Sesi</label>
                     <input type="text" name="nama_sesi" class="w-full px-4 py-2.5 rounded-lg border border-[#c5c5d3] focus:ring-2 focus:ring-[#00236f] outline-none text-sm" placeholder="Contoh: Pembukaan Matsama" required>
+                    @error('nama_sesi')
+                        <span class="text-red-500 text-sm">{{ $message }}</span>
+                    @enderror
                 </div>
-                
-                <!-- ===== JAM MULAI (BARU!) ===== -->
                 <div>
                     <label class="text-sm font-semibold text-[#444651]">Jam Mulai Sesi</label>
                     <input type="time" name="jam_mulai" class="w-full px-4 py-2.5 rounded-lg border border-[#c5c5d3] focus:ring-2 focus:ring-[#00236f] outline-none text-sm" required>
                     <p class="text-xs text-[#64748B] mt-1">Waktu sesi dimulai</p>
+                    @error('jam_mulai')
+                        <span class="text-red-500 text-sm">{{ $message }}</span>
+                    @enderror
                 </div>
-                
-                <!-- ===== BATAS WAKTU ===== -->
                 <div>
                     <label class="text-sm font-semibold text-[#444651]">Batas Toleransi Absen</label>
                     <input type="time" name="batas_waktu" class="w-full px-4 py-2.5 rounded-lg border border-[#c5c5d3] focus:ring-2 focus:ring-[#00236f] outline-none text-sm" required>
                     <p class="text-xs text-[#64748B] mt-1">+3 menit toleransi setelah batas waktu</p>
+                    @error('batas_waktu')
+                        <span class="text-red-500 text-sm">{{ $message }}</span>
+                    @enderror
                 </div>
-                
                 <div>
                     <label class="text-sm font-semibold text-[#444651]">Peruntukan</label>
                     <select name="peruntukan" class="w-full px-4 py-2.5 rounded-lg border border-[#c5c5d3] focus:ring-2 focus:ring-[#00236f] outline-none text-sm">
@@ -50,6 +54,9 @@
                         <option value="MTs">MTs</option>
                         <option value="MA">MA</option>
                     </select>
+                    @error('peruntukan')
+                        <span class="text-red-500 text-sm">{{ $message }}</span>
+                    @enderror
                 </div>
                 <button type="submit" class="w-full bg-[#a53936] text-white py-3 rounded-lg font-semibold text-sm hover:bg-[#852221] transition-all">
                     SIMPAN SESI
@@ -122,25 +129,178 @@
     </div>
 </div>
 
+<!-- ================================================================ -->
+<!-- MODAL EDIT SESI -->
+<!-- ================================================================ -->
+<div id="modalEditSesi" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);z-index:1000;align-items:center;justify-content:center;padding:20px;">
+    <div style="background:#fff;border-radius:16px;padding:28px;max-width:450px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h3 style="font-size:18px;font-weight:700;color:#0f172a;display:flex;align-items:center;gap:8px;">
+                <span class="material-symbols-outlined">edit</span> Edit Sesi
+            </h3>
+            <button onclick="tutupModalEdit()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#94a3b8;">✕</button>
+        </div>
+        <form id="formEditSesi">
+            @csrf
+            @method('PUT')
+            <input type="hidden" id="editSesiId">
+            <div style="space-y:14px;">
+                <div>
+                    <label style="font-size:13px;font-weight:600;color:#475569;">Nama Sesi</label>
+                    <input type="text" id="editNamaSesi" required
+                           style="width:100%;padding:10px 14px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none;"
+                           placeholder="Nama sesi"
+                           onfocus="this.style.borderColor='#1e293b'"
+                           onblur="this.style.borderColor='#e2e8f0'">
+                </div>
+                <div>
+                    <label style="font-size:13px;font-weight:600;color:#475569;">Jam Mulai</label>
+                    <input type="time" id="editJamMulai" required
+                           style="width:100%;padding:10px 14px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none;"
+                           onfocus="this.style.borderColor='#1e293b'"
+                           onblur="this.style.borderColor='#e2e8f0'">
+                </div>
+                <div>
+                    <label style="font-size:13px;font-weight:600;color:#475569;">Batas Waktu</label>
+                    <input type="time" id="editBatasWaktu" required
+                           style="width:100%;padding:10px 14px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none;"
+                           onfocus="this.style.borderColor='#1e293b'"
+                           onblur="this.style.borderColor='#e2e8f0'">
+                </div>
+                <div>
+                    <label style="font-size:13px;font-weight:600;color:#475569;">Peruntukan</label>
+                    <select id="editPeruntukan" style="width:100%;padding:10px 14px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none;background:#fff;">
+                        <option value="Semua">Semua</option>
+                        <option value="MTs">MTs</option>
+                        <option value="MA">MA</option>
+                    </select>
+                </div>
+                <div style="display:flex;gap:10px;padding-top:8px;">
+                    <button type="button" onclick="tutupModalEdit()" style="flex:1;padding:12px;border:2px solid #e2e8f0;border-radius:10px;font-weight:600;cursor:pointer;background:#fff;color:#64748b;">Batal</button>
+                    <button type="submit" id="btnSimpanEdit" style="flex:2;padding:12px;border:none;border-radius:10px;font-weight:600;cursor:pointer;background:#00236f;color:#fff;transition:all 0.15s;">
+                        💾 Simpan
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
 @push('scripts')
 <script>
+    // ================================================================
+    // TOGGLE SESI
+    // ================================================================
     function toggleSesi(id) {
         fetch(`/sesi/${id}/toggle-active`, {
             method: 'POST',
             headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
-        }).then(res => res.json()).then(data => { if(data.success) location.reload(); });
+        }).then(res => res.json()).then(data => { 
+            if(data.success) location.reload(); 
+        });
     }
+
+    // ================================================================
+    // HAPUS SESI
+    // ================================================================
     function hapusSesi(id) {
         if(confirm('Yakin ingin menghapus sesi ini?')) {
             fetch(`/sesi/${id}`, {
                 method: 'DELETE',
                 headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
-            }).then(res => res.json()).then(data => { if(data.success) location.reload(); });
+            }).then(res => res.json()).then(data => { 
+                if(data.success) location.reload(); 
+            });
         }
     }
+
+    // ================================================================
+    // EDIT SESI - SEKARANG BERFUNGSI!
+    // ================================================================
     function editSesi(id) {
-        alert('Fitur edit sesi akan segera hadir');
+        fetch(`/sesi/${id}`)
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('editSesiId').value = data.id;
+                document.getElementById('editNamaSesi').value = data.nama_sesi;
+                document.getElementById('editJamMulai').value = data.jam_mulai ? data.jam_mulai.substring(0, 5) : '';
+                document.getElementById('editBatasWaktu').value = data.batas_waktu.substring(0, 5);
+                document.getElementById('editPeruntukan').value = data.peruntukan;
+                document.getElementById('modalEditSesi').style.display = 'flex';
+            })
+            .catch(() => {
+                alert('❌ Gagal mengambil data sesi');
+            });
     }
+
+    function tutupModalEdit() {
+        document.getElementById('modalEditSesi').style.display = 'none';
+    }
+
+    // Submit form edit
+    document.getElementById('formEditSesi').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const id = document.getElementById('editSesiId').value;
+        const nama_sesi = document.getElementById('editNamaSesi').value.trim();
+        const jam_mulai = document.getElementById('editJamMulai').value;
+        const batas_waktu = document.getElementById('editBatasWaktu').value;
+        const peruntukan = document.getElementById('editPeruntukan').value;
+
+        if (!nama_sesi || !jam_mulai || !batas_waktu) {
+            alert('⚠️ Semua field harus diisi!');
+            return;
+        }
+
+        const btn = document.getElementById('btnSimpanEdit');
+        btn.disabled = true;
+        btn.textContent = '⏳ Menyimpan...';
+
+        fetch(`/sesi/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({ nama_sesi, jam_mulai, batas_waktu, peruntukan })
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.text().then(text => {
+                    throw new Error(`Server error: ${text.substring(0, 100)}`);
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                alert('✅ ' + data.message);
+                tutupModalEdit();
+                location.reload();
+            } else {
+                alert('❌ ' + (data.message || 'Gagal update sesi'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('⚠️ Terjadi kesalahan: ' + error.message);
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.textContent = '💾 Simpan';
+        });
+    });
+
+    // Tutup modal dengan ESC
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') tutupModalEdit();
+    });
+
+    // Tutup modal klik di luar
+    document.getElementById('modalEditSesi').addEventListener('click', function(e) {
+        if (e.target === this) tutupModalEdit();
+    });
 </script>
 @endpush
 @endsection
