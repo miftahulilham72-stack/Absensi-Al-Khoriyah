@@ -30,7 +30,8 @@ class AbsensiController extends Controller
     }
 
     /**
-     * Proses absensi digital siswa (dengan TTD)
+     * Proses absensi digital siswa (dengan TTD) - TANPA STORED PROCEDURE
+     * Tetap menggunakan ACID (Database Transaction)
      */
     public function store(Request $request)
     {
@@ -47,40 +48,45 @@ class AbsensiController extends Controller
         }
 
         try {
+            // ===== ACID: BEGIN TRANSACTION =====
             DB::beginTransaction();
 
             $nis = $request->nis;
             $ttdBase64 = $request->ttd;
 
-            // Simpan TTD sebagai file
-            $ttdPath = $this->saveTtdImage($ttdBase64, $nis);
-
-            // Cari peserta
+            // 1. Cek peserta
             $peserta = Peserta::where('nis', $nis)->first();
             if (!$peserta) {
-                throw new \Exception('NIS tidak terdaftar!');
+                throw new \Exception('NIS tidak terdaftar! Silakan hubungi panitia.');
             }
 
-            // Cari sesi aktif
+            // 2. Cek sesi aktif
             $sesi = Sesi::where('is_active', true)->first();
             if (!$sesi) {
-                throw new \Exception('Tidak ada sesi aktif!');
+                throw new \Exception('Tidak ada sesi aktif saat ini!');
             }
 
-            // Cek duplikat
+            // 3. Cek duplikat absensi
             $sudahAbsen = Absensi::where('peserta_id', $peserta->id)
                                 ->where('sesi_id', $sesi->id)
                                 ->exists();
             if ($sudahAbsen) {
-                throw new \Exception($peserta->nama_lengkap . ' sudah absen!');
+                throw new \Exception($peserta->nama_lengkap . ' sudah melakukan absen untuk sesi ini!');
             }
 
+            // 4. Cek TTD tidak boleh kosong
+            if (empty($ttdBase64) || strlen($ttdBase64) < 100) {
+                throw new \Exception('Tanda tangan wajib diisi!');
+            }
+
+            // 5. Simpan gambar TTD
+            $ttdPath = $this->saveTtdImage($ttdBase64, $nis);
+
+            // 6. Tentukan status
             $jamSekarang = now()->format('H:i:s');
-            
-            // ===== LOGIKA STATUS BARU =====
             $status = $sesi->getStatus($jamSekarang);
 
-            // Simpan absensi
+            // 7. Simpan absensi
             Absensi::create([
                 'peserta_id' => $peserta->id,
                 'sesi_id' => $sesi->id,
@@ -92,6 +98,7 @@ class AbsensiController extends Controller
                 'diabsensi_oleh' => null,
             ]);
 
+            // ===== ACID: COMMIT TRANSACTION =====
             DB::commit();
 
             return response()->json([
@@ -100,6 +107,7 @@ class AbsensiController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            // ===== ACID: ROLLBACK TRANSACTION =====
             DB::rollBack();
             return response()->json([
                 'success' => false,
@@ -170,7 +178,6 @@ class AbsensiController extends Controller
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
 
-        // Header
         $headers = ['No', 'NIS', 'Nama Lengkap', 'Lembaga', 'Sesi', 'Jam Masuk', 'Status', 'Keterangan', 'Absen Manual', 'Diabsensi Oleh', 'Waktu Absen'];
         foreach ($headers as $i => $header) {
             $col = chr(65 + $i);
@@ -182,7 +189,6 @@ class AbsensiController extends Controller
             $sheet->getStyle($col . '1')->getFont()->getColor()->setARGB('FFFFFFFF');
         }
 
-        // Data
         foreach ($absensi as $i => $data) {
             $row = $i + 2;
             $sheet->setCellValue('A' . $row, $i + 1);
@@ -222,9 +228,8 @@ class AbsensiController extends Controller
         }
 
         $absensi = $query->get();
-        $sesiList = Sesi::all();
 
-        $pdf = Pdf::loadView('absensi.pdf', compact('absensi', 'sesiList'));
+        $pdf = Pdf::loadView('absensi.pdf', compact('absensi'));
         return $pdf->download('rekap_absensi_' . date('Y-m-d') . '.pdf');
     }
 
@@ -232,9 +237,6 @@ class AbsensiController extends Controller
     // ===== KIOSK MODE =====
     // ================================================================
 
-    /**
-     * Tampilkan halaman kiosk untuk peserta
-     */
     public function kiosk(Request $request)
     {
         $lembaga = $request->get('lembaga', 'semua');
@@ -248,9 +250,6 @@ class AbsensiController extends Controller
         return view('absensi.kiosk', compact('lembaga', 'sesiAktif'));
     }
 
-    /**
-     * Proses absensi dari mode kiosk
-     */
     public function kioskStore(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -273,24 +272,20 @@ class AbsensiController extends Controller
             $ttdBase64 = $request->ttd;
             $lembagaFilter = $request->lembaga;
 
-            // Cari peserta
             $peserta = Peserta::where('nis', $nis)->first();
             if (!$peserta) {
                 throw new \Exception('NIS tidak terdaftar!');
             }
 
-            // Validasi lembaga
             if ($lembagaFilter !== 'semua' && $peserta->lembaga !== $lembagaFilter) {
                 throw new \Exception('NIS terdaftar di ' . $peserta->lembaga . ', bukan ' . $lembagaFilter . '!');
             }
 
-            // Cari sesi aktif
             $sesi = Sesi::where('is_active', true)->first();
             if (!$sesi) {
                 throw new \Exception('Tidak ada sesi aktif!');
             }
 
-            // Cek duplikat
             $sudahAbsen = Absensi::where('peserta_id', $peserta->id)
                                 ->where('sesi_id', $sesi->id)
                                 ->exists();
@@ -298,14 +293,11 @@ class AbsensiController extends Controller
                 throw new \Exception($peserta->nama_lengkap . ' sudah absen!');
             }
 
-            // Simpan TTD
             $ttdPath = $this->saveTtdImage($ttdBase64, $nis);
 
-            // Tentukan status
             $jamSekarang = now()->format('H:i:s');
             $status = $sesi->getStatus($jamSekarang);
 
-            // Simpan absensi
             Absensi::create([
                 'peserta_id' => $peserta->id,
                 'sesi_id' => $sesi->id,
@@ -337,9 +329,6 @@ class AbsensiController extends Controller
         }
     }
 
-    /**
-     * Get counter absensi real-time
-     */
     public function counter(Request $request)
     {
         $today = now()->toDateString();
@@ -366,12 +355,9 @@ class AbsensiController extends Controller
     }
 
     // ================================================================
-    // ===== ABSENSI MANUAL (UNTUK PANITIA/ADMIN) =====
+    // ===== ABSENSI MANUAL =====
     // ================================================================
 
-    /**
-     * Tampilkan halaman absensi manual untuk panitia
-     */
     public function manual(Request $request)
     {
         $sesiAktif = Sesi::where('is_active', true)->first();
@@ -424,9 +410,6 @@ class AbsensiController extends Controller
         return view('absensi.manual', compact('peserta', 'sesiAktif', 'statistik'));
     }
 
-    /**
-     * Simpan absensi manual dari panitia
-     */
     public function manualStore(Request $request)
     {
         $request->validate([
@@ -450,8 +433,6 @@ class AbsensiController extends Controller
                                    ->first();
 
                 $jamSekarang = now()->format('H:i:s');
-                
-                // ===== LOGIKA STATUS BARU =====
                 $status = $sesiAktif->getStatus($jamSekarang);
 
                 if ($existing) {

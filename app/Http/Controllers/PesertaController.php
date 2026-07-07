@@ -15,6 +15,9 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 
 class PesertaController extends Controller
 {
+    /**
+     * Display a listing of the resource.
+     */
     public function index(Request $request)
     {
         $query = Peserta::query();
@@ -28,7 +31,7 @@ class PesertaController extends Controller
             });
         }
         
-        // ===== FILTER LEMBAGA - BARU! =====
+        // Filter Lembaga
         if ($request->filled('lembaga')) {
             $query->where('lembaga', $request->lembaga);
         }
@@ -39,11 +42,17 @@ class PesertaController extends Controller
         return view('peserta.index', compact('peserta', 'total'));
     }
 
+    /**
+     * Show the form for creating a new resource.
+     */
     public function create()
     {
         return view('peserta.create');
     }
 
+    /**
+     * Store a newly created resource in storage.
+     */
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -68,14 +77,17 @@ class PesertaController extends Controller
         if ($request->ajax()) {
             return response()->json([
                 'success' => true,
-                'message' => 'Siswa berhasil ditambahkan!',
+                'message' => '✅ Siswa berhasil ditambahkan!',
                 'data' => $peserta
             ]);
         }
 
-        return redirect()->route('peserta.index')->with('success', 'Siswa berhasil ditambahkan!');
+        return redirect()->route('peserta.index')->with('success', '✅ Siswa berhasil ditambahkan!');
     }
 
+    /**
+     * Display the specified resource.
+     */
     public function show($id)
     {
         $peserta = Peserta::findOrFail($id);
@@ -87,12 +99,18 @@ class PesertaController extends Controller
         return view('peserta.show', compact('peserta'));
     }
 
+    /**
+     * Show the form for editing the specified resource.
+     */
     public function edit($id)
     {
         $peserta = Peserta::findOrFail($id);
         return view('peserta.edit', compact('peserta'));
     }
 
+    /**
+     * Update the specified resource in storage.
+     */
     public function update(Request $request, $id)
     {
         $peserta = Peserta::findOrFail($id);
@@ -119,29 +137,39 @@ class PesertaController extends Controller
         if ($request->ajax()) {
             return response()->json([
                 'success' => true,
-                'message' => 'Data siswa berhasil diupdate!',
+                'message' => '✅ Data siswa berhasil diupdate!',
                 'data' => $peserta
             ]);
         }
 
-        return redirect()->route('peserta.index')->with('success', 'Data siswa berhasil diupdate!');
+        return redirect()->route('peserta.index')->with('success', '✅ Data siswa berhasil diupdate!');
     }
 
+    /**
+     * Remove the specified resource from storage.
+     * 
+     * MENGGUNAKAN REDIRECT (BUKAN JSON) UNTUK MENGHINDARI ERROR 404/405
+     */
     public function destroy($id)
     {
-        $peserta = Peserta::findOrFail($id);
-        $peserta->delete();
+        try {
+            $peserta = Peserta::findOrFail($id);
+            
+            // Hapus data absensi terkait
+            Absensi::where('peserta_id', $id)->delete();
+            
+            $peserta->delete();
 
-        if (request()->ajax()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'Siswa berhasil dihapus!'
-            ]);
+            return redirect()->route('peserta.index')->with('success', '✅ Siswa berhasil dihapus!');
+            
+        } catch (\Exception $e) {
+            return redirect()->route('peserta.index')->with('error', '❌ Gagal menghapus: ' . $e->getMessage());
         }
-
-        return redirect()->route('peserta.index')->with('success', 'Siswa berhasil dihapus!');
     }
 
+    /**
+     * Cari peserta berdasarkan NIS (untuk auto-fill)
+     */
     public function cari($nis)
     {
         $peserta = Peserta::where('nis', $nis)->first();
@@ -160,11 +188,17 @@ class PesertaController extends Controller
         ]);
     }
 
+    /**
+     * Show the import form
+     */
     public function importForm()
     {
         return view('peserta.import');
     }
 
+    /**
+     * Import data from Excel
+     */
     public function import(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -183,6 +217,7 @@ class PesertaController extends Controller
             $sheet = $spreadsheet->getActiveSheet();
             $rows = $sheet->toArray();
 
+            // Skip header
             array_shift($rows);
 
             $success = 0;
@@ -228,6 +263,9 @@ class PesertaController extends Controller
             if (count($duplicates) > 0) {
                 $message .= " ⚠️ " . count($duplicates) . " data duplikat dilewati.";
             }
+            if (count($errors) > 0) {
+                $message .= " ❌ " . count($errors) . " data gagal diimport.";
+            }
 
             return redirect()->route('peserta.import.form')
                 ->with('success', $message)
@@ -240,17 +278,22 @@ class PesertaController extends Controller
         }
     }
 
+    /**
+     * Download template Excel
+     */
     public function exportTemplate()
     {
         try {
             $spreadsheet = new Spreadsheet();
             $sheet = $spreadsheet->getActiveSheet();
 
+            // Header
             $sheet->setCellValue('A1', 'NIS');
             $sheet->setCellValue('B1', 'Nama Lengkap');
             $sheet->setCellValue('C1', 'Lembaga (MTs/MA)');
             $sheet->setCellValue('D1', 'Gugus/Kelompok');
 
+            // Style header
             $headerStyle = $sheet->getStyle('A1:D1');
             $headerStyle->getFont()->setBold(true)->setSize(12);
             $headerStyle->getFill()
@@ -258,6 +301,7 @@ class PesertaController extends Controller
                 ->getStartColor()->setARGB('FF1E3A8A');
             $headerStyle->getFont()->getColor()->setARGB('FFFFFFFF');
 
+            // Example data
             $sheet->setCellValue('A2', '2510614001');
             $sheet->setCellValue('B2', 'Ahmad Fauzi Rahman');
             $sheet->setCellValue('C2', 'MA');
@@ -273,10 +317,12 @@ class PesertaController extends Controller
             $sheet->setCellValue('C4', 'MA');
             $sheet->setCellValue('D4', 'Kelompok Khalid bin Walid');
 
+            // Auto size
             foreach (range('A', 'D') as $col) {
                 $sheet->getColumnDimension($col)->setAutoSize(true);
             }
 
+            // Border
             $styleArray = [
                 'borders' => [
                     'allBorders' => [
@@ -288,7 +334,7 @@ class PesertaController extends Controller
             $sheet->getStyle('A1:D4')->applyFromArray($styleArray);
 
             $writer = new Xlsx($spreadsheet);
-              
+            
             header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             header('Content-Disposition: attachment;filename="template_import_peserta.xlsx"');
             header('Cache-Control: max-age=0');
@@ -336,14 +382,14 @@ class PesertaController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Peserta berhasil didaftarkan!',
+                'message' => '✅ Peserta berhasil didaftarkan!',
                 'data' => $peserta
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal mendaftarkan: ' . $e->getMessage()
+                'message' => '❌ Gagal mendaftarkan: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -358,21 +404,17 @@ class PesertaController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Password harus diisi!'
-            ], 422);
+            return redirect()->route('peserta.index')->with('error', '❌ Password harus diisi!');
         }
 
         $user = Auth::user();
         if (!Hash::check($request->password, $user->password)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Password salah!'
-            ], 422);
+            return redirect()->route('peserta.index')->with('error', '❌ Password salah!');
         }
 
         try {
+            DB::beginTransaction();
+
             $absensiCount = Absensi::count();
             $pesertaCount = Peserta::count();
 
@@ -390,18 +432,17 @@ class PesertaController extends Controller
             DB::statement('ALTER TABLE absensi AUTO_INCREMENT = 1');
             DB::statement('ALTER TABLE peserta AUTO_INCREMENT = 1');
 
-            return response()->json([
-                'success' => true,
-                'message' => "Berhasil menghapus {$pesertaCount} data peserta dan {$absensiCount} data absensi!"
-            ]);
+            DB::commit();
+
+            return redirect()->route('peserta.index')->with('success', 
+                "✅ Berhasil menghapus {$pesertaCount} data peserta dan {$absensiCount} data absensi!"
+            );
 
         } catch (\Exception $e) {
+            DB::rollBack();
             DB::statement('SET FOREIGN_KEY_CHECKS=1');
             
-            return response()->json([
-                'success' => false,
-                'message' => 'Gagal menghapus data: ' . $e->getMessage()
-            ], 500);
+            return redirect()->route('peserta.index')->with('error', '❌ Gagal menghapus data: ' . $e->getMessage());
         }
     }
 }

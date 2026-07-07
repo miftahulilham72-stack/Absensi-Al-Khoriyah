@@ -51,7 +51,6 @@
             <span style="font-size:13px;color:#64748b;">Total: <strong style="color:#0f172a;">{{ $total ?? 0 }}</strong> siswa</span>
             
             <div style="display:flex;flex-wrap:wrap;gap:8px;">
-                <!-- Search Input -->
                 <form method="GET" action="{{ route('peserta.index') }}" style="display:flex;align-items:center;gap:6px;" id="filter-form">
                     <div style="position:relative;">
                         <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:16px;color:#94a3b8;">🔍</span>
@@ -62,7 +61,6 @@
                                onblur="this.style.width='180px';this.style.borderColor='#e2e8f0';">
                     </div>
                     
-                    <!-- Filter Lembaga -->
                     <select name="lembaga" style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:20px;font-size:13px;outline:none;background:#f8fafc;cursor:pointer;transition:all 0.3s;" onchange="document.getElementById('filter-form').submit();">
                         <option value="">Semua Lembaga</option>
                         <option value="MTs" {{ request('lembaga') == 'MTs' ? 'selected' : '' }}>🏫 MTs</option>
@@ -93,7 +91,7 @@
                 </thead>
                 <tbody id="table-body">
                     @forelse($peserta ?? [] as $p)
-                    <tr style="border-bottom:1px solid #e2e8f0;">
+                    <tr style="border-bottom:1px solid #e2e8f0;" data-id="{{ $p->id }}">
                         <td style="padding:8px 12px;font-family:monospace;color:#1e293b;">{{ $p->nis }}</td>
                         <td style="padding:8px 12px;font-weight:500;">{{ $p->nama_lengkap }}</td>
                         <td style="padding:8px 12px;">
@@ -222,11 +220,19 @@
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Accept': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
             },
             body: JSON.stringify({ nis, nama_lengkap: nama, lembaga, gugus })
         })
-        .then(res => res.json())
+        .then(response => {
+            if (!response.ok) {
+                return response.text().then(text => {
+                    throw new Error(`Server error ${response.status}: ${text.substring(0, 100)}`);
+                });
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
                 alert('✅ ' + data.message);
@@ -238,6 +244,7 @@
             }
         })
         .catch(error => {
+            console.error('Error:', error);
             alert('⚠️ Terjadi kesalahan: ' + error.message);
         })
         .finally(() => {
@@ -255,35 +262,37 @@
     });
 
     // ================================================================
-    // SEARCH - Sudah pakai form filter
-    // ================================================================
-
-    // ================================================================
-    // HAPUS SISWA SATU PER SATU
+    // 🗑️ HAPUS SISWA SATU PER SATU (PAKAI FORM - AMAN)
     // ================================================================
     function hapusSiswa(id) {
-        if (!confirm('Yakin ingin menghapus siswa ini?')) return;
+        if (!confirm('⚠️ Yakin ingin menghapus siswa ini?')) return;
         
-        fetch(`/peserta/${id}`, {
-            method: 'DELETE',
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-            }
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                alert('✅ ' + data.message);
-                location.reload();
-            } else {
-                alert('❌ ' + data.message);
-            }
-        })
-        .catch(() => alert('⚠️ Terjadi kesalahan'));
+        // Buat form dengan method POST + _method DELETE
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/peserta/${id}`;
+        form.style.display = 'none';
+
+        // CSRF Token
+        const csrf = document.createElement('input');
+        csrf.type = 'hidden';
+        csrf.name = '_token';
+        csrf.value = document.querySelector('meta[name="csrf-token"]').content;
+        form.appendChild(csrf);
+
+        // Method Spoofing (DELETE)
+        const method = document.createElement('input');
+        method.type = 'hidden';
+        method.name = '_method';
+        method.value = 'DELETE';
+        form.appendChild(method);
+
+        document.body.appendChild(form);
+        form.submit();
     }
 
     // ================================================================
-    // HAPUS SEMUA DATA
+    // 🗑️ HAPUS SEMUA DATA (PAKAI FORM - AMAN)
     // ================================================================
     function hapusSemuaData() {
         if (!confirm('⚠️ PERINGATAN!\n\nAnda akan menghapus SEMUA data peserta dan absensi!\n\nData yang dihapus TIDAK BISA DIKEMBALIKAN!\n\nYakin ingin melanjutkan?')) {
@@ -303,32 +312,38 @@
         btn.textContent = '⏳ Memproses...';
         btn.style.opacity = '0.6';
 
-        fetch('/peserta/hapus-semua', {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-            },
-            body: JSON.stringify({ password: password })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                alert('✅ ' + data.message);
-                location.reload();
-            } else {
-                alert('❌ ' + data.message);
-            }
-        })
-        .catch(error => {
-            alert('⚠️ Terjadi kesalahan: ' + error.message);
-        })
-        .finally(() => {
-            btn.disabled = false;
-            btn.textContent = originalText;
-            btn.style.opacity = '1';
-        });
+        // Buat form dengan method POST + _method DELETE
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/peserta/hapus-semua';
+        form.style.display = 'none';
+
+        // CSRF Token
+        const csrf = document.createElement('input');
+        csrf.type = 'hidden';
+        csrf.name = '_token';
+        csrf.value = document.querySelector('meta[name="csrf-token"]').content;
+        form.appendChild(csrf);
+
+        // Method Spoofing (DELETE)
+        const method = document.createElement('input');
+        method.type = 'hidden';
+        method.name = '_method';
+        method.value = 'DELETE';
+        form.appendChild(method);
+
+        // Password
+        const pwd = document.createElement('input');
+        pwd.type = 'hidden';
+        pwd.name = 'password';
+        pwd.value = password;
+        form.appendChild(pwd);
+
+        document.body.appendChild(form);
+        form.submit();
     }
 </script>
 @endpush
+
+{{-- TUTUP @endsection DENGAN BENAR --}}
 @endsection

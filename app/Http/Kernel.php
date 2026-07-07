@@ -64,7 +64,9 @@ class Kernel extends HttpKernel
         'signed' => \Illuminate\Routing\Middleware\ValidateSignature::class,
         'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
-        // ===== INI YANG PENTING =====
+        
+        // ===== MIDDLEWARE KHUSUS =====
         'admin' => \App\Http\Middleware\AdminMiddleware::class,
+        'panitia' => \App\Http\Middleware\PanitiaMiddleware::class,  // <-- PASTIKAN INI ADA!
     ];
 }
