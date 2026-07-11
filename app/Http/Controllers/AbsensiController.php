@@ -15,9 +15,6 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 
 class AbsensiController extends Controller
 {
-    /**
-     * Tampilkan form absensi untuk siswa (digital)
-     */
     public function form()
     {
         $sesiAktif = Sesi::where('is_active', true)->first();
@@ -29,10 +26,6 @@ class AbsensiController extends Controller
         return view('absensi.form', compact('sesiAktif'));
     }
 
-    /**
-     * Proses absensi digital siswa (dengan TTD) - TANPA STORED PROCEDURE
-     * Tetap menggunakan ACID (Database Transaction)
-     */
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -48,45 +41,33 @@ class AbsensiController extends Controller
         }
 
         try {
-            // ===== ACID: BEGIN TRANSACTION =====
             DB::beginTransaction();
 
             $nis = $request->nis;
             $ttdBase64 = $request->ttd;
 
-            // 1. Cek peserta
+            $ttdPath = $this->saveTtdImage($ttdBase64, $nis);
+
             $peserta = Peserta::where('nis', $nis)->first();
             if (!$peserta) {
-                throw new \Exception('NIS tidak terdaftar! Silakan hubungi panitia.');
+                throw new \Exception('NIS tidak terdaftar!');
             }
 
-            // 2. Cek sesi aktif
             $sesi = Sesi::where('is_active', true)->first();
             if (!$sesi) {
-                throw new \Exception('Tidak ada sesi aktif saat ini!');
+                throw new \Exception('Tidak ada sesi aktif!');
             }
 
-            // 3. Cek duplikat absensi
             $sudahAbsen = Absensi::where('peserta_id', $peserta->id)
                                 ->where('sesi_id', $sesi->id)
                                 ->exists();
             if ($sudahAbsen) {
-                throw new \Exception($peserta->nama_lengkap . ' sudah melakukan absen untuk sesi ini!');
+                throw new \Exception($peserta->nama_lengkap . ' sudah absen!');
             }
 
-            // 4. Cek TTD tidak boleh kosong
-            if (empty($ttdBase64) || strlen($ttdBase64) < 100) {
-                throw new \Exception('Tanda tangan wajib diisi!');
-            }
-
-            // 5. Simpan gambar TTD
-            $ttdPath = $this->saveTtdImage($ttdBase64, $nis);
-
-            // 6. Tentukan status
             $jamSekarang = now()->format('H:i:s');
             $status = $sesi->getStatus($jamSekarang);
 
-            // 7. Simpan absensi
             Absensi::create([
                 'peserta_id' => $peserta->id,
                 'sesi_id' => $sesi->id,
@@ -98,7 +79,6 @@ class AbsensiController extends Controller
                 'diabsensi_oleh' => null,
             ]);
 
-            // ===== ACID: COMMIT TRANSACTION =====
             DB::commit();
 
             return response()->json([
@@ -107,7 +87,6 @@ class AbsensiController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            // ===== ACID: ROLLBACK TRANSACTION =====
             DB::rollBack();
             return response()->json([
                 'success' => false,
@@ -116,9 +95,6 @@ class AbsensiController extends Controller
         }
     }
 
-    /**
-     * Simpan gambar TTD
-     */
     private function saveTtdImage($base64, $nis)
     {
         $imageData = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $base64));
@@ -133,9 +109,6 @@ class AbsensiController extends Controller
         return 'uploads/ttd/' . $filename;
     }
 
-    /**
-     * Tampilkan log riwayat absensi
-     */
     public function log(Request $request)
     {
         $query = Absensi::with(['peserta', 'sesi'])->orderBy('created_at', 'desc');
@@ -162,9 +135,6 @@ class AbsensiController extends Controller
         return view('absensi.log', compact('absensi', 'sesiList'));
     }
 
-    /**
-     * Export data absensi ke Excel
-     */
     public function exportExcel(Request $request)
     {
         $query = Absensi::with(['peserta', 'sesi'])->orderBy('created_at', 'desc');
@@ -178,7 +148,6 @@ class AbsensiController extends Controller
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
 
-        // Header dengan tambahan kolom TTD
         $headers = ['No', 'NIS', 'Nama Lengkap', 'Lembaga', 'Sesi', 'Jam Masuk', 'Status', 'Keterangan', 'Absen Manual', 'Diabsensi Oleh', 'Waktu Absen', 'TTD'];
         foreach ($headers as $i => $header) {
             $col = chr(65 + $i);
@@ -190,7 +159,6 @@ class AbsensiController extends Controller
             $sheet->getStyle($col . '1')->getFont()->getColor()->setARGB('FFFFFFFF');
         }
 
-        // Data
         foreach ($absensi as $i => $data) {
             $row = $i + 2;
             $sheet->setCellValue('A' . $row, $i + 1);
@@ -204,11 +172,9 @@ class AbsensiController extends Controller
             $sheet->setCellValue('I' . $row, $data->absen_manual ? 'Ya' : 'Tidak');
             $sheet->setCellValue('J' . $row, $data->diabsensi_oleh ?? '-');
             $sheet->setCellValue('K' . $row, $data->created_at ? $data->created_at->format('H:i:s d/m/Y') : '-');
-            // Kolom L: TTD (path gambar)
             $sheet->setCellValue('L' . $row, ($data->ttd_image && $data->ttd_image != 'manual_absensi') ? asset($data->ttd_image) : 'Manual');
         }
 
-        // Auto size
         foreach (range('A', 'L') as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
@@ -221,9 +187,6 @@ class AbsensiController extends Controller
         exit;
     }
 
-    /**
-     * Export data absensi ke PDF
-     */
     public function exportPdf(Request $request)
     {
         $query = Absensi::with(['peserta', 'sesi'])->orderBy('created_at', 'desc');
@@ -233,8 +196,9 @@ class AbsensiController extends Controller
         }
 
         $absensi = $query->get();
+        $sesiList = Sesi::all();
 
-        $pdf = Pdf::loadView('absensi.pdf', compact('absensi'));
+        $pdf = Pdf::loadView('absensi.pdf', compact('absensi', 'sesiList'));
         return $pdf->download('rekap_absensi_' . date('Y-m-d') . '.pdf');
     }
 
@@ -367,9 +331,15 @@ class AbsensiController extends Controller
     {
         $sesiAktif = Sesi::where('is_active', true)->first();
         
+        $sudahAbsenIds = [];
+        if ($sesiAktif) {
+            $sudahAbsenIds = Absensi::where('sesi_id', $sesiAktif->id)
+                                    ->pluck('peserta_id')
+                                    ->toArray();
+        }
+        
         $query = Peserta::query();
         
-        // Filter search
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
@@ -378,36 +348,19 @@ class AbsensiController extends Controller
             });
         }
 
-        // Filter lembaga
         if ($request->filled('lembaga')) {
             $query->where('lembaga', $request->lembaga);
         }
 
-        // Filter status
         if ($request->filled('status_filter')) {
             $filter = $request->status_filter;
             if ($filter == 'belum' && $sesiAktif) {
-                $sudahAbsenIds = Absensi::where('sesi_id', $sesiAktif->id)
-                                        ->pluck('peserta_id')
-                                        ->toArray();
                 $query->whereNotIn('id', $sudahAbsenIds);
             } elseif ($filter == 'sudah' && $sesiAktif) {
-                $sudahAbsenIds = Absensi::where('sesi_id', $sesiAktif->id)
-                                        ->pluck('peserta_id')
-                                        ->toArray();
                 $query->whereIn('id', $sudahAbsenIds);
             }
         }
 
-        // ===== AMBIL PESERTA YANG SUDAH ABSEN DI SESI AKTIF =====
-        $sudahAbsenIds = [];
-        if ($sesiAktif) {
-            $sudahAbsenIds = Absensi::where('sesi_id', $sesiAktif->id)
-                                    ->pluck('peserta_id')
-                                    ->toArray();
-        }
-
-        // Eager load absensi manual
         if ($sesiAktif) {
             $query->with(['absensi_manual' => function($q) use ($sesiAktif) {
                 $q->where('sesi_id', $sesiAktif->id);
@@ -424,15 +377,24 @@ class AbsensiController extends Controller
             $statistik['alpa'] = Absensi::where('sesi_id', $sesiAktif->id)->where('keterangan', 'Alpa')->count();
         }
 
-        // Kirim data ke view
         return view('absensi.manual', compact('peserta', 'sesiAktif', 'statistik', 'sudahAbsenIds'));
     }
 
+    /**
+     * Simpan absensi manual dari panitia - VERSI RAW QUERY (PASTI BERHASIL!)
+     */
     public function manualStore(Request $request)
     {
-        $request->validate([
-            'changes' => 'required|array'
-        ]);
+        // ===== AMBIL DATA =====
+        $changes = $request->input('changes');
+        
+        // ===== CEK =====
+        if (!is_array($changes) || empty($changes)) {
+            return response()->json([
+                'success' => false,
+                'message' => '❌ Tidak ada data!'
+            ]);
+        }
 
         try {
             DB::beginTransaction();
@@ -444,37 +406,54 @@ class AbsensiController extends Controller
 
             $adminName = Auth::user()->name ?? 'Admin';
             $saved = 0;
+            $log = [];
 
-            foreach ($request->changes as $pesertaId => $keterangan) {
-                $existing = Absensi::where('peserta_id', $pesertaId)
-                                   ->where('sesi_id', $sesiAktif->id)
-                                   ->first();
+            foreach ($changes as $pesertaId => $keterangan) {
+                if (!in_array($keterangan, ['Hadir', 'Sakit', 'Izin', 'Alpa'])) {
+                    continue;
+                }
+
+                // ===== CARI DATA ABSENSI =====
+                $absensi = Absensi::where('peserta_id', $pesertaId)
+                                  ->where('sesi_id', $sesiAktif->id)
+                                  ->first();
 
                 $jamSekarang = now()->format('H:i:s');
                 $status = $sesiAktif->getStatus($jamSekarang);
 
-                if ($existing) {
-                    $existing->update([
-                        'keterangan' => $keterangan,
-                        'absen_manual' => true,
-                        'diabsensi_oleh' => $adminName,
-                        'jam_masuk' => $jamSekarang,
-                        'status' => $status,
-                    ]);
+                if ($absensi) {
+                    // ===== UPDATE PAKAI RAW QUERY (PASTI!) =====
+                    $updated = DB::table('absensi')
+                        ->where('id', $absensi->id)
+                        ->update([
+                            'keterangan' => $keterangan,
+                            'absen_manual' => 1,
+                            'diabsensi_oleh' => $adminName,
+                            'jam_masuk' => $jamSekarang,
+                            'status' => $status,
+                            'updated_at' => now(),
+                        ]);
+                    
+                    $log[] = "UPDATE ID {$absensi->id} → {$keterangan} (affected: $updated)";
                 } else {
+                    // ===== CREATE =====
                     $peserta = Peserta::find($pesertaId);
                     if (!$peserta) continue;
                     
-                    Absensi::create([
+                    $newId = DB::table('absensi')->insertGetId([
                         'peserta_id' => $pesertaId,
                         'sesi_id' => $sesiAktif->id,
                         'jam_masuk' => $jamSekarang,
                         'status' => $status,
                         'keterangan' => $keterangan,
                         'ttd_image' => 'manual_absensi',
-                        'absen_manual' => true,
+                        'absen_manual' => 1,
                         'diabsensi_oleh' => $adminName,
+                        'created_at' => now(),
+                        'updated_at' => now(),
                     ]);
+                    
+                    $log[] = "CREATE ID {$newId} → {$keterangan}";
                 }
                 $saved++;
             }
@@ -483,15 +462,183 @@ class AbsensiController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => "Berhasil menyimpan $saved data absensi manual!"
+                'message' => "✅ Berhasil menyimpan {$saved} data!",
+                'log' => $log
             ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
-            ], 400);
+                'message' => '❌ ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    // ================================================================
+    // ===== EXPORT WORD (.docx) =====
+    // ================================================================
+
+    /**
+     * Export data absensi ke Word (.docx) dengan Kop Surat
+     */
+    public function exportWord(Request $request)
+    {
+        try {
+            // ===== AMBIL DATA =====
+            $query = Absensi::with(['peserta', 'sesi'])->orderBy('created_at', 'desc');
+
+            if ($request->filled('sesi')) {
+                $query->where('sesi_id', $request->sesi);
+            }
+
+            $absensi = $query->get();
+            $totalSiswa = $absensi->count();
+
+            // ===== AMBIL JENJANG =====
+            $jenjang = $request->get('jenjang', 'mts');
+            if (!in_array($jenjang, ['mts', 'ma'])) {
+                $jenjang = 'mts';
+            }
+            $kop = config('kop_surat.' . $jenjang);
+
+            // ===== BUAT PHPWORD =====
+            $phpWord = new \PhpOffice\PhpWord\PhpWord();
+            $section = $phpWord->addSection([
+                'orientation' => 'portrait',
+                'margin' => 720,
+            ]);
+
+            // ================================================================
+            // KOP SURAT
+            // ================================================================
+            $fontBoldLarge = ['name' => 'Arial', 'size' => 14, 'bold' => true];
+            $fontBoldMed = ['name' => 'Arial', 'size' => 12, 'bold' => true];
+            $fontNormal = ['name' => 'Arial', 'size' => 10];
+            $fontSmall = ['name' => 'Arial', 'size' => 9];
+
+            // Yayasan
+            $section->addText($kop['yayasan'], $fontBoldLarge, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            
+            // Nama Madrasah
+            $section->addText($kop['nama'], $fontBoldMed, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            
+            // Akreditasi
+            $section->addText('TERAKREDITASI "' . $kop['akreditasi'] . '"', $fontNormal, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            
+            // NSM & NPSN
+            $section->addText(
+                'NSM : ' . $kop['nsm'] . ' | NPSN : ' . $kop['npsn'],
+                $fontSmall,
+                ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]
+            );
+            
+            // Alamat
+            $section->addText($kop['alamat'], $fontSmall, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            $section->addText($kop['kota'], $fontSmall, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            
+            // Telepon & Email
+            $section->addText(
+                'Telp. ' . $kop['telp'] . ' | Email : ' . $kop['email'],
+                $fontSmall,
+                ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]
+            );
+
+            // Garis pembatas
+            $section->addText(
+                '═════════════════════════════════════════════════════════════════',
+                ['name' => 'Arial', 'size' => 8],
+                ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]
+            );
+
+            // ===== JUDUL =====
+            $section->addText('');
+            $section->addText('LAPORAN REKAP ABSENSI', $fontBoldMed, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            $section->addText(
+                'Periode: ' . now()->format('d F Y'),
+                $fontNormal,
+                ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]
+            );
+            $section->addText('');
+
+            // ===== TOTAL =====
+            $section->addText('Total Siswa: ' . $totalSiswa . ' orang', $fontNormal);
+            $section->addText('');
+
+            // ================================================================
+            // TABEL
+            // ================================================================
+            $table = $section->addTable([
+                'borderSize' => 6,
+                'borderColor' => '000000',
+                'cellMargin' => 60,
+            ]);
+
+            // HEADER
+            $headers = ['No', 'Kode', 'NIS', 'Nama Lengkap', 'Lembaga', 'Sesi', 'Jam Masuk', 'Status', 'Keterangan'];
+            $headerRow = $table->addRow();
+            foreach ($headers as $header) {
+                $cell = $headerRow->addCell(1800, ['valign' => 'center', 'bgColor' => '1E293B']);
+                $cell->addText($header, ['name' => 'Arial', 'size' => 8, 'bold' => true, 'color' => 'FFFFFF'], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            }
+
+            // DATA
+            foreach ($absensi as $i => $data) {
+                $row = $table->addRow();
+                $row->addCell(500)->addText(($i + 1), ['name' => 'Arial', 'size' => 8]);
+                $row->addCell(1000)->addText($data->sesi->kode_sesi ?? '-', ['name' => 'Arial', 'size' => 8]);
+                $row->addCell(1200)->addText($data->peserta->nis ?? '-', ['name' => 'Arial', 'size' => 8]);
+                $row->addCell(2500)->addText($data->peserta->nama_lengkap ?? '-', ['name' => 'Arial', 'size' => 8]);
+                $row->addCell(1000)->addText($data->peserta->lembaga ?? '-', ['name' => 'Arial', 'size' => 8]);
+                $row->addCell(1800)->addText($data->sesi->nama_sesi ?? '-', ['name' => 'Arial', 'size' => 8]);
+                $row->addCell(1000)->addText($data->jam_masuk ?? '-', ['name' => 'Arial', 'size' => 8]);
+                $row->addCell(1500)->addText($data->status ?? '-', ['name' => 'Arial', 'size' => 8]);
+                $row->addCell(1500)->addText($data->keterangan ?? '-', ['name' => 'Arial', 'size' => 8]);
+            }
+
+            // ===== TANDA TANGAN =====
+            $section->addText('');
+            $section->addText('');
+            $section->addText('');
+
+            $ttdTable = $section->addTable(['borderSize' => 0]);
+            
+            $ttdRow1 = $ttdTable->addRow();
+            $ttdRow1->addCell(5000, ['borderSize' => 0])->addText('Mengetahui,', ['name' => 'Arial', 'size' => 10]);
+            $ttdRow1->addCell(5000, ['borderSize' => 0])->addText('Ciamis, ' . now()->format('d F Y'), ['name' => 'Arial', 'size' => 10]);
+
+            $ttdRow2 = $ttdTable->addRow();
+            $ttdRow2->addCell(5000, ['borderSize' => 0])->addText('Kepala Madrasah', ['name' => 'Arial', 'size' => 10]);
+            $ttdRow2->addCell(5000, ['borderSize' => 0])->addText('Petugas Absensi', ['name' => 'Arial', 'size' => 10]);
+
+            $ttdRow3 = $ttdTable->addRow();
+            $ttdRow3->addCell(5000, ['borderSize' => 0])->addText('');
+            $ttdRow3->addCell(5000, ['borderSize' => 0])->addText('');
+
+            $ttdRow4 = $ttdTable->addRow();
+            $ttdRow4->addCell(5000, ['borderSize' => 0])->addText('_________________________', ['name' => 'Arial', 'size' => 10]);
+            $ttdRow4->addCell(5000, ['borderSize' => 0])->addText('_________________________', ['name' => 'Arial', 'size' => 10]);
+
+            // ===== FOOTER =====
+            $section->addText('');
+            $section->addText(
+                'Dicetak dari Sistem Absensi Al-Khoeriyah | ' . now()->format('d/m/Y H:i:s'),
+                ['name' => 'Arial', 'size' => 8, 'italic' => true],
+                ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]
+            );
+
+            // ===== SAVE & DOWNLOAD =====
+            $filename = 'rekap_absensi_' . date('Y-m-d') . '.docx';
+            $tempFile = storage_path('app/public/' . $filename);
+            
+            $objWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007');
+            $objWriter->save($tempFile);
+            
+            return response()->download($tempFile)->deleteFileAfterSend(true);
+
+        } catch (\Exception $e) {
+            \Log::error('Export Word Error: ' . $e->getMessage());
+            return back()->with('error', '❌ Gagal export Word: ' . $e->getMessage());
         }
     }
 }

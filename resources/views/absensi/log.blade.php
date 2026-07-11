@@ -9,12 +9,18 @@
             <h1 class="text-2xl font-bold text-[#00236f]">Riwayat Kehadiran</h1>
             <p class="text-[#64748B] text-sm">Log seluruh data absensi siswa</p>
         </div>
-        <div class="flex gap-3">
+        <div class="flex gap-3 flex-wrap">
+            <!-- Export Excel -->
             <a href="{{ route('absensi.export.excel', request()->query()) }}" class="bg-[#10B981] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#059669] transition-all flex items-center gap-2">
                 <span class="material-symbols-outlined text-sm">table_rows</span> Export Excel
             </a>
+            <!-- Export PDF -->
             <a href="{{ route('absensi.export.pdf', request()->query()) }}" class="bg-[#EF4444] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#DC2626] transition-all flex items-center gap-2">
                 <span class="material-symbols-outlined text-sm">picture_as_pdf</span> Export PDF
+            </a>
+            <!-- ===== EXPORT WORD (.docx) ===== -->
+            <a href="{{ route('absensi.export.word', array_merge(request()->query(), ['jenjang' => 'mts'])) }}" class="bg-[#3B82F6] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#2563EB] transition-all flex items-center gap-2">
+                <span class="material-symbols-outlined text-sm">description</span> Export Word
             </a>
         </div>
     </div>
@@ -58,12 +64,14 @@
                 <thead>
                     <tr class="bg-[#00236f] text-white">
                         <th class="px-4 py-3 text-xs font-semibold">NO</th>
+                        <th class="px-4 py-3 text-xs font-semibold">KODE</th>
                         <th class="px-4 py-3 text-xs font-semibold">NAMA LENGKAP</th>
                         <th class="px-4 py-3 text-xs font-semibold">NIS</th>
                         <th class="px-4 py-3 text-xs font-semibold">LEMBAGA</th>
                         <th class="px-4 py-3 text-xs font-semibold">SESI</th>
                         <th class="px-4 py-3 text-xs font-semibold">JAM MASUK</th>
                         <th class="px-4 py-3 text-xs font-semibold">STATUS</th>
+                        <th class="px-4 py-3 text-xs font-semibold">KETERANGAN</th>
                         <th class="px-4 py-3 text-xs font-semibold text-center">TTD</th>
                     </tr>
                 </thead>
@@ -71,6 +79,7 @@
                     @forelse($absensi ?? [] as $log)
                     <tr class="hover:bg-[#f2f4f6] transition-colors">
                         <td class="px-4 py-3 text-[#64748B] text-sm">{{ $loop->iteration }}</td>
+                        <td class="px-4 py-3 font-mono text-sm font-bold text-[#00236f]">{{ $log->sesi->kode_sesi ?? '-' }}</td>
                         <td class="px-4 py-3 text-sm font-medium">{{ $log->peserta->nama_lengkap ?? '-' }}</td>
                         <td class="px-4 py-3 font-mono text-sm text-[#00236f]">{{ $log->peserta->nis ?? '-' }}</td>
                         <td class="px-4 py-3">
@@ -93,6 +102,24 @@
                                 {{ $log->status ?? '-' }}
                             </span>
                         </td>
+                        <td class="px-4 py-3">
+                            @if($log->keterangan)
+                                @php
+                                    $ketClass = match($log->keterangan) {
+                                        'Hadir' => 'bg-[#10b98115] text-[#10b981]',
+                                        'Sakit' => 'bg-[#f59e0b15] text-[#f59e0b]',
+                                        'Izin' => 'bg-[#3b82f615] text-[#3b82f6]',
+                                        'Alpa' => 'bg-[#ef444415] text-[#ef4444]',
+                                        default => 'bg-[#e2e8f0] text-[#94a3b8]'
+                                    };
+                                @endphp
+                                <span class="px-3 py-1 rounded-full text-[10px] font-bold {{ $ketClass }}">
+                                    {{ $log->keterangan }}
+                                </span>
+                            @else
+                                <span class="text-[#94a3b8] text-sm">-</span>
+                            @endif
+                        </td>
                         <td class="px-4 py-3 text-center">
                             @if($log->ttd_image && $log->ttd_image != 'manual_absensi')
                                 <img src="{{ asset($log->ttd_image) }}" 
@@ -108,7 +135,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="8" class="px-4 py-8 text-center text-[#64748B]">
+                        <td colspan="10" class="px-4 py-8 text-center text-[#64748B]">
                             <span class="material-symbols-outlined text-4xl block mb-2 text-[#c5c5d3]">inbox</span>
                             Belum ada data kehadiran
                         </td>
@@ -123,9 +150,7 @@
     </div>
 </div>
 
-<!-- ================================================================ -->
 <!-- MODAL ZOOM TTD -->
-<!-- ================================================================ -->
 <div id="modalTtd" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:1000;align-items:center;justify-content:center;padding:20px;">
     <div style="background:#fff;border-radius:16px;padding:24px;max-width:420px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);" onclick="event.stopPropagation();">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
@@ -152,12 +177,10 @@
         document.body.style.overflow = '';
     }
 
-    // Tutup dengan ESC
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') closeTtd();
     });
 
-    // Tutup klik di luar modal
     document.getElementById('modalTtd').addEventListener('click', function(e) {
         if (e.target === this) closeTtd();
     });

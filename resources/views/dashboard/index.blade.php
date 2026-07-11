@@ -54,55 +54,83 @@
         </div>
     </div>
 
-    <!-- KPI Cards -->
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px;">
+    <!-- ===== KPI CARDS - 6 KOLOM ===== -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;">
+        
         <!-- Card 1: HADIR -->
-        <div style="background:#ffffff;border-radius:10px;border:1px solid #e2e8f0;padding:16px 18px;border-top:4px solid #10b981;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                <span style="color:#64748b;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;">HARI INI</span>
-                <span style="font-size:9px;color:#10b981;background:#10b98115;padding:2px 10px;border-radius:20px;font-weight:700;">HADIR</span>
+        <div style="background:#ffffff;border-radius:10px;border:1px solid #e2e8f0;padding:12px 14px;border-top:4px solid #10b981;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+                <span style="color:#64748b;font-size:10px;font-weight:600;text-transform:uppercase;">HARI INI</span>
+                <span style="font-size:8px;color:#10b981;background:#10b98115;padding:1px 8px;border-radius:20px;font-weight:700;">HADIR</span>
             </div>
-            <div style="display:flex;align-items:baseline;gap:6px;">
-                <span style="font-size:28px;font-weight:700;color:#0f172a;">{{ $hadir ?? 0 }}</span>
-                <span style="color:#64748b;font-size:13px;">/ {{ $totalPeserta ?? 0 }} Siswa</span>
-            </div>
-            <div style="margin-top:8px;background:#e2e8f0;height:4px;border-radius:4px;overflow:hidden;">
-                <div style="background:#10b981;height:100%;border-radius:4px;width:{{ $totalPeserta > 0 ? ($hadir/$totalPeserta)*100 : 0 }}%;transition:width 0.5s;"></div>
+            <div style="display:flex;align-items:baseline;gap:4px;">
+                <span style="font-size:24px;font-weight:700;color:#0f172a;">{{ $hadir ?? 0 }}</span>
+                <span style="color:#64748b;font-size:11px;">/ {{ $totalPeserta ?? 0 }}</span>
             </div>
         </div>
 
-        <!-- Card 2: BELUM HADIR -->
-        <div style="background:#ffffff;border-radius:10px;border:1px solid #e2e8f0;padding:16px 18px;border-top:4px solid #f59e0b;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                <span style="color:#64748b;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;">HARI INI</span>
-                <span style="font-size:9px;color:#f59e0b;background:#f59e0b15;padding:2px 10px;border-radius:20px;font-weight:700;">BELUM HADIR</span>
+        <!-- Card 2: SAKIT -->
+        <div style="background:#ffffff;border-radius:10px;border:1px solid #e2e8f0;padding:12px 14px;border-top:4px solid #f59e0b;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+                <span style="color:#64748b;font-size:10px;font-weight:600;text-transform:uppercase;">HARI INI</span>
+                <span style="font-size:8px;color:#f59e0b;background:#f59e0b15;padding:1px 8px;border-radius:20px;font-weight:700;">SAKIT</span>
             </div>
-            <div style="display:flex;align-items:baseline;gap:6px;">
-                <span style="font-size:28px;font-weight:700;color:#0f172a;">{{ $belumHadir ?? 0 }}</span>
-                <span style="color:#64748b;font-size:13px;">Belum Scan</span>
-            </div>
-            <div style="margin-top:8px;background:#e2e8f0;height:4px;border-radius:4px;overflow:hidden;">
-                <div style="background:#f59e0b;height:100%;border-radius:4px;width:{{ $totalPeserta > 0 ? ($belumHadir/$totalPeserta)*100 : 0 }}%;transition:width 0.5s;"></div>
+            <div style="display:flex;align-items:baseline;gap:4px;">
+                <span style="font-size:24px;font-weight:700;color:#0f172a;">{{ $sakit ?? 0 }}</span>
+                <span style="color:#64748b;font-size:11px;">Siswa</span>
             </div>
         </div>
 
-        <!-- Card 3: TERLAMBAT -->
-        <div style="background:#ffffff;border-radius:10px;border:1px solid #e2e8f0;padding:16px 18px;border-top:4px solid #ef4444;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                <span style="color:#64748b;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;">HARI INI</span>
-                <span style="font-size:9px;color:#ef4444;background:#ef444415;padding:2px 10px;border-radius:20px;font-weight:700;">TERLAMBAT</span>
+        <!-- Card 3: IZIN -->
+        <div style="background:#ffffff;border-radius:10px;border:1px solid #e2e8f0;padding:12px 14px;border-top:4px solid #3b82f6;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+                <span style="color:#64748b;font-size:10px;font-weight:600;text-transform:uppercase;">HARI INI</span>
+                <span style="font-size:8px;color:#3b82f6;background:#3b82f615;padding:1px 8px;border-radius:20px;font-weight:700;">IZIN</span>
             </div>
-            <div style="display:flex;align-items:baseline;gap:6px;">
-                <span style="font-size:28px;font-weight:700;color:#0f172a;">{{ $terlambat ?? 0 }}</span>
-                <span style="color:#64748b;font-size:13px;">Siswa</span>
+            <div style="display:flex;align-items:baseline;gap:4px;">
+                <span style="font-size:24px;font-weight:700;color:#0f172a;">{{ $izin ?? 0 }}</span>
+                <span style="color:#64748b;font-size:11px;">Siswa</span>
             </div>
-            <div style="margin-top:8px;background:#e2e8f0;height:4px;border-radius:4px;overflow:hidden;">
-                <div style="background:#ef4444;height:100%;border-radius:4px;width:{{ $totalPeserta > 0 ? ($terlambat/$totalPeserta)*100 : 0 }}%;transition:width 0.5s;"></div>
+        </div>
+
+        <!-- Card 4: ALPA -->
+        <div style="background:#ffffff;border-radius:10px;border:1px solid #e2e8f0;padding:12px 14px;border-top:4px solid #ef4444;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+                <span style="color:#64748b;font-size:10px;font-weight:600;text-transform:uppercase;">HARI INI</span>
+                <span style="font-size:8px;color:#ef4444;background:#ef444415;padding:1px 8px;border-radius:20px;font-weight:700;">ALPA</span>
+            </div>
+            <div style="display:flex;align-items:baseline;gap:4px;">
+                <span style="font-size:24px;font-weight:700;color:#0f172a;">{{ $alpa ?? 0 }}</span>
+                <span style="color:#64748b;font-size:11px;">Siswa</span>
+            </div>
+        </div>
+
+        <!-- Card 5: BELUM HADIR -->
+        <div style="background:#ffffff;border-radius:10px;border:1px solid #e2e8f0;padding:12px 14px;border-top:4px solid #94a3b8;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+                <span style="color:#64748b;font-size:10px;font-weight:600;text-transform:uppercase;">HARI INI</span>
+                <span style="font-size:8px;color:#64748b;background:#e2e8f0;padding:1px 8px;border-radius:20px;font-weight:700;">BELUM</span>
+            </div>
+            <div style="display:flex;align-items:baseline;gap:4px;">
+                <span style="font-size:24px;font-weight:700;color:#0f172a;">{{ $belumHadir ?? 0 }}</span>
+                <span style="color:#64748b;font-size:11px;">Siswa</span>
+            </div>
+        </div>
+
+        <!-- Card 6: TERLAMBAT -->
+        <div style="background:#ffffff;border-radius:10px;border:1px solid #e2e8f0;padding:12px 14px;border-top:4px solid #dc2626;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+                <span style="color:#64748b;font-size:10px;font-weight:600;text-transform:uppercase;">HARI INI</span>
+                <span style="font-size:8px;color:#dc2626;background:#dc262615;padding:1px 8px;border-radius:20px;font-weight:700;">TERLAMBAT</span>
+            </div>
+            <div style="display:flex;align-items:baseline;gap:4px;">
+                <span style="font-size:24px;font-weight:700;color:#0f172a;">{{ $terlambat ?? 0 }}</span>
+                <span style="color:#64748b;font-size:11px;">Siswa</span>
             </div>
         </div>
     </div>
 
-    <!-- Log Table -->
+    <!-- ===== LOG TABLE ===== -->
     <div style="background:#ffffff;border-radius:10px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
         <div style="padding:12px 18px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
             <span style="font-weight:600;font-size:14px;color:#0f172a;display:flex;align-items:center;gap:6px;">
@@ -121,6 +149,7 @@
                         <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:600;">SESI</th>
                         <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:600;">JAM MASUK</th>
                         <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:600;">STATUS</th>
+                        <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:600;">KETERANGAN</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -149,10 +178,24 @@
                                 {{ $log->status ?? '-' }}
                             </span>
                         </td>
+                        <td style="padding:10px 14px;">
+                            @php
+                                $ketClass = match($log->keterangan ?? '') {
+                                    'Hadir' => 'bg-[#10b98115] text-[#10b981]',
+                                    'Sakit' => 'bg-[#f59e0b15] text-[#f59e0b]',
+                                    'Izin' => 'bg-[#3b82f615] text-[#3b82f6]',
+                                    'Alpa' => 'bg-[#ef444415] text-[#ef4444]',
+                                    default => 'bg-[#e2e8f0] text-[#94a3b8]'
+                                };
+                            @endphp
+                            <span style="font-size:9px;padding:2px 14px;border-radius:20px;font-weight:700;{{ $ketClass }};">
+                                {{ $log->keterangan ?? '-' }}
+                            </span>
+                        </td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="7" style="padding:40px;text-align:center;color:#94a3b8;">
+                        <td colspan="8" style="padding:40px;text-align:center;color:#94a3b8;">
                             <span class="material-symbols-outlined" style="font-size:36px;display:block;margin-bottom:6px;color:#cbd5e1;">inbox</span>
                             Belum ada data kehadiran
                         </td>
@@ -174,7 +217,7 @@
 @push('scripts')
 <script>
     // ================================================================
-    // COUNTDOWN SESSION (Sisa Waktu)
+    // COUNTDOWN SESSION
     // ================================================================
     function updateCountdown() {
         @if($sesiAktif)
@@ -183,7 +226,6 @@
             const endTime = new Date(now);
             endTime.setHours(hours, minutes, seconds, 0);
             
-            // Jika waktu sudah lewat, tambah 1 hari
             if (now > endTime) {
                 endTime.setDate(endTime.getDate() + 1);
             }
@@ -203,12 +245,11 @@
         @endif
     }
 
-    // Update setiap 1 detik
     updateCountdown();
     setInterval(updateCountdown, 1000);
 
     // ================================================================
-    // AUTO REFRESH LOG (Setiap 30 detik)
+    // AUTO REFRESH LOG
     // ================================================================
     function refreshLog() {
         fetch(window.location.href)
@@ -224,7 +265,6 @@
             .catch(() => {});
     }
 
-    // Refresh setiap 30 detik
     setInterval(refreshLog, 30000);
 </script>
 @endpush

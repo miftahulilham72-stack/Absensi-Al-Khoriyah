@@ -19,7 +19,7 @@
             </h3>
 
             @if(session('success'))
-                <div class="bg-[#10B981]/10 text-[#10B981] p-3 rounded-lg text-sm mb-4">{{ session('success') }}</div>
+                <div class="bg-[#10B981]/10 text-[#10B981] p-3 rounded-lg text-sm mb-4">{!! session('success') !!}</div>
             @endif
 
             <form method="POST" action="{{ route('sesi.store') }}" class="space-y-4">
@@ -62,6 +62,12 @@
                     SIMPAN SESI
                 </button>
             </form>
+
+            @if(session('success'))
+                <div class="mt-3 text-xs text-[#64748B]">
+                    💡 Kode sesi akan dibuat otomatis (contoh: 001PKN)
+                </div>
+            @endif
         </div>
 
         <!-- Daftar Sesi -->
@@ -76,6 +82,7 @@
                 <table class="w-full text-left border-collapse">
                     <thead>
                         <tr class="bg-[#00236f] text-white">
+                            <th class="px-4 py-3 text-xs font-semibold">Kode</th>
                             <th class="px-4 py-3 text-xs font-semibold">Nama Sesi</th>
                             <th class="px-4 py-3 text-xs font-semibold">Jam Mulai</th>
                             <th class="px-4 py-3 text-xs font-semibold">Batas Waktu</th>
@@ -86,8 +93,9 @@
                     </thead>
                     <tbody class="divide-y divide-[#E2E8F0]">
                         @forelse($sesi ?? [] as $s)
-                        <tr class="hover:bg-[#f2f4f6] transition-colors">
-                            <td class="px-4 py-3 text-sm font-medium">{{ $s->nama_sesi }}</td>
+                        <tr style="border-bottom:1px solid #e2e8f0;" data-sesi-id="{{ $s->id }}">
+                            <td class="px-4 py-3 font-mono text-sm font-bold text-[#00236f]">{{ $s->kode_sesi ?? '-' }}</td>
+                            <td class="px-4 py-3 text-sm font-medium nama-sesi">{{ $s->nama_sesi }}</td>
                             <td class="px-4 py-3 font-mono text-sm">{{ $s->jam_mulai ?? '-' }}</td>
                             <td class="px-4 py-3 font-mono text-sm">{{ $s->batas_waktu }}</td>
                             <td class="px-4 py-3">
@@ -116,7 +124,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="6" class="px-4 py-8 text-center text-[#64748B]">
+                            <td colspan="7" class="px-4 py-8 text-center text-[#64748B]">
                                 <span class="material-symbols-outlined text-4xl block mb-2 text-[#c5c5d3]">event</span>
                                 Belum ada sesi
                             </td>
@@ -201,21 +209,64 @@
     }
 
     // ================================================================
-    // HAPUS SESI
+    // HAPUS SESI DENGAN KONFIRMASI PASSWORD
     // ================================================================
     function hapusSesi(id) {
-        if(confirm('Yakin ingin menghapus sesi ini?')) {
-            fetch(`/sesi/${id}`, {
-                method: 'DELETE',
-                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
-            }).then(res => res.json()).then(data => { 
-                if(data.success) location.reload(); 
-            });
+        const row = document.querySelector(`tr[data-sesi-id="${id}"]`);
+        const namaSesi = row ? row.querySelector('.nama-sesi').textContent : 'sesi ini';
+        
+        if (!confirm(`⚠️ PERINGATAN!\n\nAnda akan menghapus sesi:\n"${namaSesi}"\n\nSemua data absensi terkait juga akan terhapus!\n\nData yang dihapus TIDAK BISA DIKEMBALIKAN!\n\nLanjutkan?`)) {
+            return;
         }
+
+        const password = prompt('🔐 Masukkan password admin untuk konfirmasi:');
+        if (password === null) return;
+        if (password.trim() === '') {
+            alert('❌ Password tidak boleh kosong!');
+            return;
+        }
+
+        const btn = document.querySelector(`button[onclick="hapusSesi(${id})"]`);
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '⏳';
+
+        fetch(`/sesi/${id}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ password: password })
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(data => {
+                    throw new Error(data.message || 'Gagal menghapus');
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                alert('✅ ' + data.message);
+                location.reload();
+            } else {
+                alert('❌ ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('⚠️ ' + error.message);
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        });
     }
 
     // ================================================================
-    // EDIT SESI - SEKARANG BERFUNGSI!
+    // EDIT SESI
     // ================================================================
     function editSesi(id) {
         fetch(`/sesi/${id}`)
@@ -237,7 +288,6 @@
         document.getElementById('modalEditSesi').style.display = 'none';
     }
 
-    // Submit form edit
     document.getElementById('formEditSesi').addEventListener('submit', function(e) {
         e.preventDefault();
 
@@ -292,12 +342,10 @@
         });
     });
 
-    // Tutup modal dengan ESC
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') tutupModalEdit();
     });
 
-    // Tutup modal klik di luar
     document.getElementById('modalEditSesi').addEventListener('click', function(e) {
         if (e.target === this) tutupModalEdit();
     });

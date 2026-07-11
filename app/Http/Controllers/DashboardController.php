@@ -7,6 +7,7 @@ use App\Models\Peserta;
 use App\Models\Sesi;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 class DashboardController extends Controller
 {
@@ -23,17 +24,36 @@ class DashboardController extends Controller
         
         // Statistik hari ini
         $today = now()->toDateString();
-        $hadir = Absensi::whereDate('created_at', $today)->count();
-        $belumHadir = $totalPeserta - $hadir;
+
+        // ===== STATISTIK DARI KOLOM "KETERANGAN" =====
+        $hadir = Absensi::whereDate('created_at', $today)
+                        ->where('keterangan', 'Hadir')
+                        ->count();
         
-        // Terlambat hari ini (dengan logika baru)
+        $sakit = Absensi::whereDate('created_at', $today)
+                        ->where('keterangan', 'Sakit')
+                        ->count();
+        
+        $izin = Absensi::whereDate('created_at', $today)
+                       ->where('keterangan', 'Izin')
+                       ->count();
+        
+        $alpa = Absensi::whereDate('created_at', $today)
+                       ->where('keterangan', 'Alpa')
+                       ->count();
+
+        // Total yang sudah absen
+        $sudahAbsen = $hadir + $sakit + $izin + $alpa;
+        $belumHadir = $totalPeserta - $sudahAbsen;
+
+        // ===== TERLAMBAT DARI KOLOM "STATUS" =====
         $terlambat = Absensi::whereDate('created_at', $today)
                             ->where(function($q) {
                                 $q->where('status', 'Terlambat (Toleransi)')
                                   ->orWhere('status', 'Terlambat');
                             })
                             ->count();
-        
+
         // Log terbaru
         $logs = Absensi::with(['peserta', 'sesi'])
                        ->orderBy('created_at', 'desc')
@@ -44,11 +64,15 @@ class DashboardController extends Controller
         $statistikLembaga = Peserta::select('lembaga', DB::raw('count(*) as total'))
                                    ->groupBy('lembaga')
                                    ->get();
-        
+
         return view('dashboard.index', compact(
             'totalPeserta',
             'sesiAktif',
             'hadir',
+            'sakit',
+            'izin',
+            'alpa',
+            'sudahAbsen',
             'belumHadir',
             'terlambat',
             'logs',
@@ -73,8 +97,7 @@ class DashboardController extends Controller
             'password' => 'required|string'
         ]);
 
-        // ===== GANTI PASSWORD DI SINI! =====
-        $validPassword = 'reset123'; // Bisa diganti sesuai keinginan
+        $validPassword = 'reset123'; // Ganti sesuai keinginan
 
         if ($request->password !== $validPassword) {
             return back()->with('error', '❌ Password salah! Data tidak dihapus.');
@@ -83,15 +106,12 @@ class DashboardController extends Controller
         try {
             DB::beginTransaction();
 
-            // Hapus semua data absensi
             $absensiDeleted = Absensi::count();
             Absensi::truncate();
 
-            // Hapus semua data peserta
             $pesertaDeleted = Peserta::count();
             Peserta::truncate();
 
-            // Reset auto-increment
             DB::statement('ALTER TABLE absensi AUTO_INCREMENT = 1');
             DB::statement('ALTER TABLE peserta AUTO_INCREMENT = 1');
 
@@ -127,11 +147,11 @@ class DashboardController extends Controller
 
         $user = auth()->user();
 
-        if (!\Illuminate\Support\Facades\Hash::check($request->old_password, $user->password)) {
+        if (!Hash::check($request->old_password, $user->password)) {
             return back()->with('error', '❌ Password lama salah!');
         }
 
-        $user->password = \Illuminate\Support\Facades\Hash::make($request->new_password);
+        $user->password = Hash::make($request->new_password);
         $user->save();
 
         return back()->with('success', '✅ Password berhasil diubah!');
